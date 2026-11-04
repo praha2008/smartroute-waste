@@ -13,7 +13,6 @@ const NEW_DEPS = {
   'expo-linear-gradient': '~58.0.3',
   'expo-localization': '~58.0.5',
   'expo-splash-screen': '~58.0.13',
-  'react-native-maps': '1.29.11',
 };
 const SPLASH = { 'citizen-app': '#0D5A3D', 'collector-app': '#132F57', 'recycler-app': '#97500A' };
 
@@ -23,6 +22,7 @@ for (const app of Object.keys(SPLASH)) {
   const pkg = JSON.parse(fs.readFileSync(pkgFile, 'utf8'));
   pkg.version = '2.0.0';
   pkg.dependencies = { ...pkg.dependencies, ...NEW_DEPS };
+  delete pkg.dependencies['react-native-maps']; // free MapLibre map is used instead
   fs.writeFileSync(pkgFile, JSON.stringify(pkg, null, 2) + '\n');
 
   const appFile = path.join(dir, 'app.json');
@@ -35,10 +35,8 @@ for (const app of Object.keys(SPLASH)) {
   e.android.permissions = [...new Set((e.android.permissions || []).filter((p) => p !== 'android.permission.RECORD_AUDIO'))];
   e.backgroundColor = '#F4F6F5';
   const keep = (p) => !['expo-splash-screen', 'react-native-maps'].includes(Array.isArray(p) ? p[0] : p);
-  const oldKey = (e.plugins || []).find((p) => Array.isArray(p) && p[0] === 'react-native-maps')?.[1]?.androidGoogleMapsApiKey;
   e.plugins = (e.plugins || []).filter(keep);
   e.plugins.push(['expo-splash-screen', { backgroundColor: SPLASH[app], image: './assets/adaptive-icon.png', imageWidth: 160 }]);
-  e.plugins.push(['react-native-maps', { androidGoogleMapsApiKey: oldKey || 'PASTE_ANDROID_MAPS_KEY' }]);
   fs.writeFileSync(appFile, JSON.stringify(cfg, null, 2) + '\n');
   console.log(`${app}: packages + splash updated (projectId ${e.extra?.eas?.projectId ?? 'not set yet'}, server ${e.extra?.serverUrl ?? 'not set'})`);
 }
