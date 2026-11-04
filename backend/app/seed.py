@@ -130,7 +130,13 @@ def ensure_admin(db) -> User | None:
         u = User(name=ADMIN_NAME, email=ADMIN_EMAIL.lower(), role="admin", password_hash=hash_password(ADMIN_PASSWORD),
                  phone=ADMIN_PHONE or None, phone_verified=True, approved=True)
         db.add(u)
-        db.commit()
+    # once a real admin exists, the public demo admin (admin@smartroute.in / admin123, visible in this
+    # open-source code) is switched off so nobody can log into the dashboard with it
+    if ADMIN_EMAIL.lower() != "admin@smartroute.in":
+        demo = db.query(User).filter(User.email == "admin@smartroute.in").first()
+        if demo is not None and demo.is_active:
+            demo.is_active = False
+    db.commit()
     return u
 
 

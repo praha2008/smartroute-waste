@@ -1,159 +1,83 @@
-# SmartRoute Waste
+# SmartRoute Waste ♻️🚛
 
-Dynamic, demand-driven waste collection for Vellore: citizens request pickups from an app, the backend
-groups and routes the requests, drivers follow an optimized route, and recyclers buy the segregated
-recyclables. This is the VIT IDP project.
+**On-demand waste collection for Vellore, Tamil Nadu.** Citizens request a pickup from their phone. The server groups nearby requests and plans capacity-aware truck routes. Drivers follow the route stop by stop, and recyclers buy the segregated recyclables that were collected.
 
+> Innovative Design Project (IDP) · VIT Vellore · 2026
+
+<p align="center">
+  <img src="docs/screenshots/citizen-home.png" width="200" alt="Citizen app home">
+  <img src="docs/screenshots/location-picker.png" width="200" alt="Pick pickup location">
+  <img src="docs/screenshots/driver-route.png" width="200" alt="Driver route">
+  <img src="docs/screenshots/recycler-market.png" width="200" alt="Recycler marketplace">
+</p>
+<p align="center">
+  <img src="docs/screenshots/dashboard-livemap.png" width="820" alt="Admin dashboard: live map with clusters and routes">
+</p>
+
+## The problem
+Most Indian cities collect garbage on **fixed routes on fixed days**. The truck passes empty streets and misses overflowing ones. Hazardous waste waits like everything else, and segregated recyclables end up in the landfill.
+
+## What SmartRoute does
+| | |
+|---|---|
+| 📱 **Citizen app** | Snap a photo, choose the type, amount and urgency, and pick the spot on a map (search, or drag the pin as in Uber / Rapido). Track the truck live and earn green credits for segregating waste. |
+| 🧠 **Planner** | Groups nearby requests (**DBSCAN**), then solves a **capacity-constrained vehicle routing problem (CVRP)** with deadlines, truck–waste compatibility and priorities (OR-Tools). Urgent and hazardous requests are slotted into trucks already on the road. |
+| 🚛 **Driver app** | Today's optimised route on a map, one-tap navigation, weight entry and proof photo at each stop, and live GPS. Drivers log in with an **employee ID + PIN**. |
+| ♻️ **Recycler app** | Every collected recyclable or e-waste pickup becomes a lot that local recyclers can claim and buy. Recyclers also see their impact stats. |
+| 🖥️ **Admin dashboard** | Live map with clusters and routes, one-click route planning, fleet and staff management, analytics, a **7-day demand forecast** and the evaluation report. |
+| 🤖 **AI photo check** | A MobileNetV3 model (98.6% test accuracy) suggests the waste type from the photo and flags likely mis-segregation to the driver. |
+| 🌐 **Tamil + English** | The whole app works in both languages and can be switched at any time. |
+
+## Results (simulation)
+One day, 120 requests across 10 Vellore wards, 4 trucks, re-planning every 4 hours:
+
+| Strategy | Collected | On time | Total km | km per pickup | CO₂ |
+|---|---|---|---|---|---|
+| Fixed daily routes (today's system) | 84% | 79% | 225 km | 2.23 | 241 kg |
+| Greedy nearest-request | 100% | 99% | 352 km | 2.94 | 378 kg |
+| **SmartRoute (DBSCAN + CVRP)** | **100%** | **100%** | **195 km** | **1.63** | **209 kg** |
+
+SmartRoute serves every request on time and drives **13% fewer km than fixed routes**. Compared with the fixed routes, it also has **0 late hazardous pickups** (fixed routes had 5).
+
+The trade-off: the average wait is a little longer (3.6 h vs 3.4 h), because low-urgency requests wait to be batched. Re-planning more often than every ~4 hours removes the distance savings. All of this is in the dashboard's *Evaluation* page and `backend/app/engine/evaluate.py`.
+
+## Architecture
 ```
- Citizen app ──requests──►                         ◄──route / GPS── Collector app
-                         FastAPI backend + planner
- Recycler app ◄──lots────                          ──live data──►  Admin web dashboard
+ Citizen app ──requests, photos──►                          ◄── route, GPS ── Driver app
+                                    FastAPI backend
+                                    ├─ DBSCAN clustering (haversine)
+ Recycler app ◄──── lots ──────     ├─ OR-Tools CVRP + SLA priorities      ──► Admin dashboard
+                                    ├─ demand forecast (per ward)               (React + Leaflet)
+                                    ├─ ONNX waste-photo classifier
+                                    └─ PostgreSQL (Neon) / SQLite
 ```
 
-| Folder | What it is | Tech |
+| Folder | What | Tech |
 |---|---|---|
-| `backend/` | REST API, database, route-planning engine, demo data | Python, FastAPI, SQLAlchemy, SQLite |
-| `mobile/citizen-app/` | Households and businesses request pickups, track the truck, earn green credits | React Native (Expo SDK 58) |
-| `mobile/collector-app/` | Drivers get today's route, navigate stop by stop, record actual weight and photo proof | React Native (Expo SDK 58) |
-| `mobile/recycler-app/` | Recyclers browse and claim collected recyclable / e-waste lots | React Native (Expo SDK 58) |
-| `mobile/shared/core/` | Code shared by all 3 apps (API client, login, map, UI kit) | TypeScript |
-| `dashboard/` | Municipal control room: live map, route planning, fleet, users, analytics | React, Vite, Leaflet |
+| `backend/` | REST API, planner, forecasting, AI, auth (phone OTP, email reset) | Python, FastAPI, SQLAlchemy, OR-Tools, scikit-learn, ONNX Runtime |
+| `mobile/citizen-app`, `collector-app`, `recycler-app` | The three Android apps | React Native (Expo SDK 58), TypeScript |
+| `mobile/shared/core/` | Code shared by the apps: UI kit, maps, auth, Tamil/English strings | TypeScript, MapLibre GL |
+| `dashboard/` | Municipal control room | React, Vite, Leaflet |
+| `ml/` | Training notebook for the waste-photo classifier | PyTorch, Google Colab |
 
----
+Maps and search are 100% free and open: OpenFreeMap tiles, plus an OpenStreetMap place index of Vellore built from the Overpass API, with Photon and Nominatim as backups.
 
-## 1. Install the tools (one time)
+## Try it
+- **Android apps:** download the APKs from the [Releases](../../releases) page.
+- **Run it yourself:** see [docs/SETUP.md](docs/SETUP.md) (laptop) and [DEPLOY.md](DEPLOY.md) (free cloud hosting on Render + Neon). For a real deployment, see [RELEASE.md](RELEASE.md).
+- **Tests:** `cd backend && pytest`
 
-1. **Python 3.10 or newer**: https://www.python.org/downloads/ (tick "Add Python to PATH")
-2. **Node.js 20 LTS or newer**: https://nodejs.org
-3. On your Android or iPhone, install **Expo Go** from the Play Store or App Store.
-4. Your phone and laptop must be on the **same Wi-Fi**. A mobile hotspot from one phone also works.
+## Limitations and next steps
+- The results come from a **simulation** with synthetic demand, not real municipal data. A pilot in one ward would be the real test.
+- Distances are straight-line × a road factor (1.35). Real road distances (OSRM) would make routes more accurate.
+- The demo runs on free hosting, so the server takes about 1 minute to wake up after being idle.
+- Next ideas: WhatsApp requests, QR-coded bins, and a leaderboard for wards.
 
-## 2. Start the backend
+## Team
+- _Add names and LinkedIn links here_
 
-Double-click **`start-backend.bat`**, or run:
+## Credits
+OpenStreetMap contributors · OpenFreeMap · Photon (Komoot) · Nominatim · Overpass API · Google OR-Tools · Expo · Kaggle *Garbage Classification* dataset (mostafaabla)
 
-```bat
-cd backend
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
-python -m app.seed --reset
-uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
-```
-
-- API docs (try every endpoint here): http://localhost:8000/docs
-- `--host 0.0.0.0` lets the phones on your Wi-Fi reach the backend.
-- The first time, Windows Firewall will ask: click **Allow** (private networks).
-
-## 3. Start the admin dashboard
-
-Double-click **`start-dashboard.bat`**, or run:
-
-```bat
-cd dashboard
-npm install
-npm run dev
-```
-
-Open http://localhost:5173 and log in with `admin@smartroute.in` / `admin123`.
-
-## 4. Run the mobile apps
-
-Each app runs on its own port, so you can run all three at once in three terminals:
-
-```bat
-cd mobile\citizen-app
-npm install
-npm start
-```
-
-(`collector-app` and `recycler-app` work the same way.) Then scan the QR code with Expo Go
-(Android) or the Camera app (iPhone).
-
-The app guesses your laptop's IP automatically. If the login screen shows "Server … (not reachable)",
-tap it and enter `http://<your-laptop-IP>:8000`. Run `ipconfig` and look for the "IPv4 Address" of
-your Wi-Fi adapter.
-
-If the QR code doesn't connect (common on college Wi-Fi), use `npm run tunnel` instead.
-
-## 5. Demo logins
-
-| App | Email | Password |
-|---|---|---|
-| Dashboard | admin@smartroute.in | admin123 |
-| Citizen (household) | citizen@smartroute.in, user1 … user8@smartroute.in | citizen123 |
-| Citizen (business) | business@smartroute.in (Hotel Annapoorna) | citizen123 |
-| Collector | driver1 … driver4@smartroute.in (driver5 is on standby, no vehicle) | driver123 |
-| Recycler | recycler@smartroute.in, recycler2@…, recycler3@… (e-waste) | recycler123 |
-
-**Fresh start any time:** Dashboard → **Users** → **Reset demo data** (type RESET). Everyone gets logged out.
-- **Clean start** (default): accounts + 5 vehicles, **zero requests**. Create requests live from the citizen app.
-- **Full sample dataset**: also loads 30 days of history and 38 open requests covering every case.
-
-Locally: `python -m app.seed --reset` (clean) or `python -m app.seed --reset --full`.
-
-## 6. End-to-end demo script (for reviews)
-
-1. **Citizen app:** log in, tap **Request a pickup**, choose a waste type, quantity and urgency (the app shows the SLA window), set the location on the map, add a photo, submit.
-2. **Dashboard → Live map:** the new pin appears (colour = waste type, size = urgency). Click **Plan routes now**: routes are drawn per truck, respecting capacity and which waste types each truck may carry.
-3. **Collector app** (log in as the driver of that route): the route shows with numbered stops. Tap **Start route**. The phone's GPS is now sent to the server every 15 seconds.
-4. **Citizen app:** the status becomes "Truck on the way", with the truck on the map, an ETA, and how many stops are before yours.
-5. **Collector app:** open the stop, enter the weighed kg, add a proof photo, tap **Mark collected**. The citizen gets green credits, and their reliability score updates based on how accurate their estimate was.
-6. **Recycler app:** if the pickup was dry recyclable or e-waste, a new lot appears in the Market. Claim it, then mark it picked up.
-7. **Dashboard → Overview / Analytics:** the KPIs (SLA compliance, kg collected, utilization) update.
-
-## 7. What's built so far, and what's next
-
-Built:
-- [x] Full data loop: generator → optimizer → collector → recycler
-- [x] Waste-type SLA tiers + urgency → deadline + dynamic priority score
-- [x] Capacity-aware, waste-type-compatible, priority-weighted route planner (greedy baseline, `backend/app/engine/planner.py`)
-- [x] Live GPS tracking, ETAs, skip/re-queue handling
-- [x] Green credits + user reliability score (handles untrustworthy crowdsourced estimates)
-- [x] Recyclable lot marketplace (circular economy)
-- [x] 14 days of Vellore demo history for analytics
-
-Next:
-- [x] DBSCAN clustering (Haversine) of active requests → communities, held isolated requests
-- [x] OR-Tools CVRP with SLA soft deadlines, priority penalties, waste-type compatibility; live urgent insertion
-- [ ] OSRM road-distance matrix (currently Haversine × 1.35 road factor)
-- [x] Rolling-horizon re-planning + live insertion of urgent requests
-- [x] Ward-level demand forecasting (seasonally adjusted model vs 4 baselines, backtested) → fleet size for tomorrow, festival spikes, regular generators due tomorrow
-- [x] AI waste-photo classification (MobileNetV3 → ONNX, trained in Colab: `ml/`), suggestion in citizen app, mis-segregation flag for admin & driver
-- [x] Evaluation: fixed-schedule baseline vs greedy vs SmartRoute (km, CO₂, utilization, SLA %), demand sweep, re-planning trade-off
-
-## Tests
-
-```bat
-cd backend
-pytest -q
-```
-
-This runs the whole flow (register → request → plan → collect → credits → recycler claim) and
-checks capacity and waste-type constraints on every planned route.
-
-## Editing the shared mobile code
-
-`mobile/shared/core` is the single source of the code shared by the three apps. After changing it,
-run `node mobile/sync-shared.js` to copy it into each app.
-
-## Building APKs (to install without Expo Go)
-
-Each app is set up to build an installable `.apk` using Expo's free cloud build service (EAS):
-
-```bat
-npm install -g eas-cli
-eas login                      &rem free account at expo.dev
-cd mobile\citizen-app
-npm install
-npm run build:apk              &rem first time it asks to create the project, press Y
-```
-
-After about 10–15 minutes, EAS gives you a download link and a QR code for the `.apk`. Repeat for
-`collector-app` and `recycler-app`.
-
-- The APK talks to the backend over plain `http://`. Android blocks that by default, so each
-  `app.json` enables it through `expo-build-properties` (`usesCleartextTraffic`).
-- An APK can't auto-detect your laptop's IP the way Expo Go does. On first launch, tap
-  "Server" on the login screen and enter `http://<laptop-IP>:8000`. For the final demo, host the
-  backend online (e.g. Render or Railway) so the APKs work on any network.
+## License
+[MIT](LICENSE)

@@ -286,3 +286,20 @@ def test_place_index_is_saved_and_reloaded_from_the_database(monkeypatch):
     monkeypatch.setattr(geo, "INDEX", [])
     geo.build_index()
     assert geo.INDEX[0]["name"] == "Test Temple" and geo.INDEX_STATE["status"] == "ready"
+
+
+def test_real_admin_switches_off_the_public_demo_admin(monkeypatch):
+    from app import config
+    from app.database import SessionLocal
+    from app.seed import ensure_admin
+
+    monkeypatch.setattr(config, "ADMIN_EMAIL", "boss@vellore.gov.in")
+    monkeypatch.setattr(config, "ADMIN_PASSWORD", "Str0ng-pass")
+    with SessionLocal() as db:
+        ensure_admin(db)
+    assert c.post("/auth/login", json={"email": "admin@smartroute.in", "password": "admin123"}).status_code == 403
+    assert c.post("/auth/login", json={"email": "boss@vellore.gov.in", "password": "Str0ng-pass"}).status_code == 200
+    with SessionLocal() as db:  # undo for other tests
+        from app.models import User
+        db.query(User).filter(User.email == "admin@smartroute.in").update({"is_active": True})
+        db.commit()
