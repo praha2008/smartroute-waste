@@ -198,10 +198,19 @@ class LocationIn(BaseModel):
 
 
 class PlanOut(BaseModel):
+    planner: str
+    planner_label: str
     routes_created: int
     requests_scheduled: int
     requests_left: int
+    deferred: int
+    dropped: int
+    clusters: int
     total_km: float
+    km_per_pickup: float | None
+    distance_source: str
+    solve_seconds: float
+    notes: list[str]
     routes: list[int]
 
 

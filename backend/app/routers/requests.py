@@ -46,6 +46,12 @@ def create_request(body: PickupCreate, user: User = Depends(citizen), db: Sessio
     req.priority_score = priority_score(req, now)
     db.add(req)
     db.commit()
+    # Dynamic insertion: urgent requests jump straight into a truck that is already out
+    if req.waste_type == "hazardous" or req.urgency == "critical":
+        from ..engine.planner import insert_urgent
+
+        insert_urgent(db, req)
+        db.refresh(req)
     return req
 
 

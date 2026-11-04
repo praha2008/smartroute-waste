@@ -2,12 +2,14 @@
 from collections import defaultdict
 from datetime import timedelta
 
-from fastapi import APIRouter, Depends, HTTPException
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..database import get_db
-from ..engine.planner import plan_routes
+from ..engine.planner import PLANNERS, plan_routes
 from ..models import PickupRequest, RecyclableLot, Route, User, Vehicle, utcnow
 from ..schemas import PickupDetail, PlanOut, RouteOut, StaffCreate, UserOut, VehicleIn, VehicleOut
 from ..security import hash_password, require_role
@@ -79,7 +81,7 @@ def live(_: User = Depends(admin), db: Session = Depends(get_db)):
         "vehicles": [vehicle_out(v).model_dump(mode="json") for v in db.scalars(select(Vehicle)).all()],
         "routes": [
             {
-                "id": rt.id, "vehicle_id": rt.vehicle_id, "status": rt.status, "total_km": rt.total_km,
+                "id": rt.id, "vehicle_id": rt.vehicle_id, "status": rt.status, "total_km": rt.total_km, "planner": rt.planner,
                 "path": [[rt.vehicle.depot_lat, rt.vehicle.depot_lng]]
                 + [[s.request.lat, s.request.lng] for s in rt.stops]
                 + [[rt.vehicle.depot_lat, rt.vehicle.depot_lng]],
@@ -90,9 +92,22 @@ def live(_: User = Depends(admin), db: Session = Depends(get_db)):
     }
 
 
+@router.get("/planners")
+def planners(_: User = Depends(admin)):
+    return [{"key": k, "label": v} for k, v in PLANNERS.items()]
+
+
 @router.post("/plan", response_model=PlanOut)
-def run_planner(_: User = Depends(admin), db: Session = Depends(get_db)):
-    return plan_routes(db)
+def run_planner(
+    planner: Literal["smart", "greedy"] = "smart",
+    eps_km: float | None = Query(None, gt=0.05, le=5, description="DBSCAN radius (km)"),
+    min_samples: int | None = Query(None, ge=2, le=20, description="DBSCAN min requests per community"),
+    defer: bool = Query(True, description="hold back isolated, non-urgent requests"),
+    time_limit: float = Query(5.0, ge=1, le=30, description="OR-Tools search seconds"),
+    _: User = Depends(admin),
+    db: Session = Depends(get_db),
+):
+    return plan_routes(db, planner, eps_km, min_samples, defer, time_limit)
 
 
 @router.get("/routes", response_model=list[RouteOut])

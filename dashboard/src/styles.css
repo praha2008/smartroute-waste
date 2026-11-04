@@ -105,6 +105,17 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
 .truck { width: 30px; height: 30px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-size: 16px; box-shadow: 0 1px 5px rgba(0,0,0,.4); }
 .depot { width: 26px; height: 26px; border-radius: 6px; background: var(--side); color: #fff; display: grid; place-items: center; font-size: 13px; border: 2px solid #fff; box-shadow: 0 1px 4px rgba(0,0,0,.35); }
 
+/* ---------- planner bar */
+.plan-bar { display: flex; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 14px; padding: 14px 16px; }
+.plan-bar .field { min-width: 150px; }
+.plan-bar .input { width: 100%; }
+.check { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: var(--ink-2); padding-bottom: 9px; cursor: pointer; }
+.check input { width: 16px; height: 16px; accent-color: var(--brand); }
+.stat-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px 14px; }
+.stat-grid div { display: grid; }
+.stat-grid b { font-size: 18px; font-variant-numeric: tabular-nums; }
+.stat-grid span { font-size: 12px; color: var(--ink-3); }
+
 /* ---------- charts */
 .chart { width: 100%; height: auto; display: block; }
 .chart text { font-family: inherit; }
@@ -168,6 +179,8 @@ td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
   .card-pad { padding: 14px; }
   .map-box { height: 58vh; min-height: 320px; }
   .map-legend { display: none; }
+  .plan-bar .field { min-width: 0; flex: 1 1 45%; }
+  .plan-bar .btn { width: 100%; justify-content: center; margin-left: 0 !important; }
   .hbar { grid-template-columns: 84px 1fr 62px; }
   .form-grid { grid-template-columns: 1fr; }
   .login { grid-template-columns: 1fr; }

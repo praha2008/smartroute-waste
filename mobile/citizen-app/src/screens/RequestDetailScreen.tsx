@@ -129,6 +129,11 @@ export default function RequestDetailScreen({ params }: { params: Params }) {
             );
           })
         )}
+        {p.status === 'pending' && !p.skip_reason && (
+          <Text style={[font.small, { marginTop: space.sm }]}>
+            We group your request with nearby pickups so trucks travel less. It will be collected before {dateTime(p.sla_deadline)}.
+          </Text>
+        )}
         {p.skip_reason && p.status === 'pending' && (
           <Text style={[font.small, { color: colors.warning, marginTop: space.sm }]}>Last attempt: {p.skip_reason}. It's back in the queue.</Text>
         )}

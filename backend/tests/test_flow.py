@@ -68,6 +68,12 @@ def test_full_flow():
     assert client.get(f"/requests/{req_id}", headers=cit).json()["status"] == "in_progress"
     assert client.post("/collector/location", headers=drv, json={"lat": 12.921, "lng": 79.134}).status_code == 200
 
+    # dynamic insertion: a new hazardous request goes straight into an already-planned truck
+    r = client.post("/requests", headers=cit, json={"waste_type": "hazardous", "urgency": "high",
+                                                     "est_kg": 2, "lat": 12.921, "lng": 79.136})
+    assert r.status_code == 201 and r.json()["route_id"] is not None, r.text
+    assert r.json()["status"] in ("scheduled", "in_progress")
+
     detail = client.get(f"/requests/{req_id}", headers=cit).json()
     assert detail["vehicle"]["cur_lat"] == 12.921 and detail["eta"]
 
