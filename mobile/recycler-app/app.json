@@ -48,7 +48,7 @@
     ],
     "icon": "./assets/icon.png",
     "extra": {
-      "serverUrl": ""
+      "serverUrl": "https://smartroute-api-8lxy.onrender.com"
     }
   }
 }
