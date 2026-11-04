@@ -1,0 +1,166 @@
+{
+ "labels": [
+  "battery",
+  "biological",
+  "brown-glass",
+  "cardboard",
+  "clothes",
+  "green-glass",
+  "metal",
+  "paper",
+  "plastic",
+  "shoes",
+  "trash",
+  "white-glass"
+ ],
+ "type_of": {
+  "battery": "hazardous",
+  "biological": "organic",
+  "brown-glass": "recyclable",
+  "cardboard": "recyclable",
+  "clothes": "general",
+  "green-glass": "recyclable",
+  "metal": "recyclable",
+  "paper": "recyclable",
+  "plastic": "recyclable",
+  "shoes": "general",
+  "trash": "general",
+  "white-glass": "recyclable"
+ },
+ "size": 224,
+ "resize": 256,
+ "mean": [
+  0.485,
+  0.456,
+  0.406
+ ],
+ "std": [
+  0.229,
+  0.224,
+  0.225
+ ],
+ "architecture": "MobileNetV3-Large (ImageNet) fine-tuned",
+ "datasets": [
+  "mostafaabla/garbage-classification"
+ ],
+ "images": {
+  "train": 7429,
+  "val": 1592,
+  "test": 1592
+ },
+ "test_accuracy_item": 0.9711,
+ "test_accuracy_type": 0.9862,
+ "per_type": {
+  "organic": {
+   "precision": 0.973,
+   "recall": 0.986,
+   "f1-score": 0.98,
+   "support": 148.0
+  },
+  "recyclable": {
+   "precision": 0.989,
+   "recall": 0.99,
+   "f1-score": 0.99,
+   "support": 838.0
+  },
+  "general": {
+   "precision": 0.987,
+   "recall": 0.989,
+   "f1-score": 0.988,
+   "support": 464.0
+  },
+  "hazardous": {
+   "precision": 0.978,
+   "recall": 0.951,
+   "f1-score": 0.964,
+   "support": 142.0
+  }
+ },
+ "confusion_matrix": {
+  "labels": [
+   "organic",
+   "recyclable",
+   "general",
+   "hazardous"
+  ],
+  "matrix": [
+   [
+    146,
+    0,
+    2,
+    0
+   ],
+   [
+    2,
+    830,
+    4,
+    2
+   ],
+   [
+    2,
+    2,
+    459,
+    1
+   ],
+   [
+    0,
+    7,
+    0,
+    135
+   ]
+  ]
+ },
+ "history": [
+  {
+   "epoch": 1,
+   "loss": 1.1072,
+   "val_acc": 0.9039
+  },
+  {
+   "epoch": 2,
+   "loss": 0.8828,
+   "val_acc": 0.9064
+  },
+  {
+   "epoch": 3,
+   "loss": 0.7973,
+   "val_acc": 0.9271
+  },
+  {
+   "epoch": 4,
+   "loss": 0.6956,
+   "val_acc": 0.9441
+  },
+  {
+   "epoch": 5,
+   "loss": 0.6517,
+   "val_acc": 0.9529
+  },
+  {
+   "epoch": 6,
+   "loss": 0.6241,
+   "val_acc": 0.951
+  },
+  {
+   "epoch": 7,
+   "loss": 0.6097,
+   "val_acc": 0.9598
+  },
+  {
+   "epoch": 8,
+   "loss": 0.602,
+   "val_acc": 0.9617
+  },
+  {
+   "epoch": 9,
+   "loss": 0.5947,
+   "val_acc": 0.9611
+  },
+  {
+   "epoch": 10,
+   "loss": 0.5925,
+   "val_acc": 0.9623
+  }
+ ],
+ "trained": "2026-11-04"
+}

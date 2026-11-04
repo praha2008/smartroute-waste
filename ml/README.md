@@ -23,13 +23,15 @@ types like this:
 ## Steps (about 30 minutes, mostly waiting)
 
 1. **Kaggle token:** sign in at kaggle.com → profile picture → **Settings** → **API** →
-   **Create New Token**. A `kaggle.json` file downloads.
+   **Generate New Token**, then **copy** the token shown (it's shown only once; keep it private).
+   *(If you still have an old `kaggle.json` file, that works too.)*
 2. **Open Colab:** go to https://colab.research.google.com → **Upload** → choose
    `ml/train_waste_classifier.ipynb` from this project.
 3. **GPU:** **Runtime → Change runtime type → T4 GPU → Save**.
 4. *(Optional, adds the e-waste class)* On Kaggle, search "e-waste image dataset" and open one with
    photos in class folders. Copy its slug (the `owner/name` part of the URL) into `EWASTE_DATASET` in cell 3.
-5. **Runtime → Run all.** When cell 2 shows an upload button, choose your `kaggle.json`.
+5. **Runtime → Run all.** Cell 2 shows a text box: press **Enter**, then **paste the token** and press Enter
+   (or type `j` to upload an old `kaggle.json`). It should print **Kaggle login OK**.
 6. Training prints accuracy after every epoch (about 2 min each on a T4). Cell 8 shows the
    **test accuracy and the confusion matrix**. Screenshot it for the report.
 7. At the end, `smartroute_model.zip` downloads. Unzip it into **`backend/app/ai/model/`**:
