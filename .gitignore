@@ -1,0 +1,12 @@
+node_modules/
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+backend/smartroute.db
+backend/uploads/
+dashboard/dist/
+dashboard/.env
+.expo/
+*.log
+.DS_Store

@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "SmartRoute",
+    "slug": "smartroute-citizen",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "light",
+    "backgroundColor": "#F4F6F5",
+    "primaryColor": "#1B7F5A",
+    "ios": {
+      "bundleIdentifier": "in.smartroute.citizen",
+      "supportsTablet": false
+    },
+    "android": {
+      "package": "in.smartroute.citizen",
+      "permissions": [
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION",
+        "CAMERA"
+      ],
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#1B7F5A"
+      }
+    },
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "SmartRoute uses your location to plan the pickup."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Attach photos of waste.",
+          "cameraPermission": "Take photos of waste."
+        }
+      ],
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true
+          }
+        }
+      ]
+    ],
+    "icon": "./assets/icon.png",
+    "extra": {
+      "serverUrl": ""
+    }
+  }
+}

@@ -1,0 +1,20 @@
+# Render Blueprint: deploys the backend as a free web service.
+# Render dashboard -> New -> Blueprint -> pick this GitHub repo.
+services:
+  - type: web
+    name: smartroute-api
+    runtime: python
+    plan: free
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.7
+      - key: DATABASE_URL # paste your Neon Postgres connection string when asked
+        sync: false
+      - key: SECRET_KEY
+        generateValue: true
+      - key: SEED_ON_START # fill an empty database with the Vellore demo data
+        value: "true"
