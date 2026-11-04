@@ -251,3 +251,119 @@ function niceStep(raw: number) {
   const n = raw / p;
   return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
 }
+
+/** History (solid line) + forecast (points with 80% range whiskers), festival labels, hover. */
+export function ForecastChart({
+  history,
+  forecast,
+}: {
+  history: { date: string; count: number }[];
+  forecast: { date: string; count: number; lo: number; hi: number; festival: string | null; is_today: boolean }[];
+}) {
+  const [tip, setTip] = useState<Tip | null>(null);
+  const [hover, setHover] = useState<number | null>(null);
+  const W = 760;
+  const H = 280;
+  const pad = { l: 40, r: 14, t: 26, b: 34 };
+  const n = history.length + forecast.length;
+  const maxV = Math.max(...history.map((h) => h.count), ...forecast.map((f) => f.hi), 10);
+  const step = maxV > 80 ? 20 : maxV > 40 ? 10 : 5;
+  const top = Math.ceil(maxV / step) * step;
+  const X = (i: number) => pad.l + ((i + 0.5) / n) * (W - pad.l - pad.r);
+  const Y = (v: number) => pad.t + (1 - v / top) * (H - pad.t - pad.b);
+  const fi = (k: number) => history.length + k;
+  const label = (iso: string) => new Date(iso + 'T00:00:00').toLocaleDateString([], { day: 'numeric', month: 'short' });
+  const HIST = '#5f6b66';
+  const FC = '#1b7f5a';
+  const ticks = Array.from({ length: top / step + 1 }, (_, k) => k * step);
+
+  return (
+    <>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="chart"
+        role="img"
+        aria-label="Requests per day: recent history and forecast"
+        onMouseLeave={() => {
+          setTip(null);
+          setHover(null);
+        }}
+        onMouseMove={(e) => {
+          const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+          const px = ((e.clientX - r.left) / r.width) * W;
+          const i = Math.max(0, Math.min(n - 1, Math.round(((px - pad.l) / (W - pad.l - pad.r)) * n - 0.5)));
+          setHover(i);
+          if (i < history.length) {
+            const h = history[i];
+            setTip({ x: e.clientX, y: e.clientY, title: label(h.date), rows: [{ label: 'Actual requests', value: String(h.count), color: HIST }] });
+          } else {
+            const f = forecast[i - history.length];
+            setTip({
+              x: e.clientX,
+              y: e.clientY,
+              title: `${label(f.date)}${f.is_today ? ' (today)' : ''}${f.festival ? ` · ${f.festival}` : ''}`,
+              rows: [
+                { label: 'Forecast', value: f.count.toFixed(0), color: FC },
+                { label: '80% range', value: `${f.lo.toFixed(0)}–${f.hi.toFixed(0)}` },
+              ],
+            });
+          }
+        }}
+      >
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={pad.l} x2={W - pad.r} y1={Y(t)} y2={Y(t)} stroke="#e8ecea" />
+            <text x={pad.l - 6} y={Y(t) + 4} fontSize="10" textAnchor="end" fill="#85918b">
+              {t}
+            </text>
+          </g>
+        ))}
+        {/* forecast zone */}
+        <rect x={X(fi(0)) - (W - pad.l - pad.r) / n / 2} y={pad.t} width={X(n - 1) - X(fi(0)) + (W - pad.l - pad.r) / n} height={H - pad.t - pad.b} fill="#e3f2eb" opacity="0.55" />
+        <text x={X(fi(0)) - (W - pad.l - pad.r) / n / 2 + 6} y={pad.t - 8} fontSize="11" fill="#0f5a3e" fontWeight="600">
+          Forecast →
+        </text>
+        {hover !== null && <line x1={X(hover)} x2={X(hover)} y1={pad.t} y2={H - pad.b} stroke="#c9d1cd" strokeDasharray="3 3" />}
+        <polyline fill="none" stroke={HIST} strokeWidth="2" points={history.map((h, i) => `${X(i)},${Y(h.count)}`).join(' ')} />
+        <polyline
+          fill="none"
+          stroke={FC}
+          strokeWidth="2"
+          strokeDasharray="5 4"
+          points={[`${X(history.length - 1)},${Y(history[history.length - 1]?.count ?? 0)}`, ...forecast.map((f, k) => `${X(fi(k))},${Y(f.count)}`)].join(' ')}
+        />
+        {forecast.map((f, k) => (
+          <g key={f.date}>
+            <line x1={X(fi(k))} x2={X(fi(k))} y1={Y(f.lo)} y2={Y(f.hi)} stroke={FC} strokeWidth="1.5" />
+            <line x1={X(fi(k)) - 4} x2={X(fi(k)) + 4} y1={Y(f.lo)} y2={Y(f.lo)} stroke={FC} strokeWidth="1.5" />
+            <line x1={X(fi(k)) - 4} x2={X(fi(k)) + 4} y1={Y(f.hi)} y2={Y(f.hi)} stroke={FC} strokeWidth="1.5" />
+            <circle cx={X(fi(k))} cy={Y(f.count)} r={hover === fi(k) ? 5.5 : 4} fill={FC} stroke="#fff" strokeWidth="2" />
+            {f.festival && (
+              <text x={X(fi(k))} y={Y(f.hi) - 8} fontSize="10.5" fontWeight="700" textAnchor="middle" fill="#0f5a3e">
+                {f.festival}
+              </text>
+            )}
+          </g>
+        ))}
+        {[...history.map((h) => h.date), ...forecast.map((f) => f.date)].map((d, i) =>
+          (n - 1 - i) % 4 === 0 ? (
+            <text key={d} x={X(i)} y={H - 12} fontSize="10" textAnchor="middle" fill="#85918b">
+              {label(d)}
+            </text>
+          ) : null,
+        )}
+      </svg>
+      <div className="legend">
+        <span>
+          <i className="swatch" style={{ background: HIST, height: 3 }} />
+          Actual requests per day
+        </span>
+        <span>
+          <i className="swatch" style={{ background: FC }} />
+          Forecast with 80% range
+        </span>
+      </div>
+      <Tooltip tip={tip} />
+    </>
+  );
+}

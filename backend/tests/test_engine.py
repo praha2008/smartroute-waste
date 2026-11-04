@@ -90,3 +90,24 @@ def test_evaluation_simulation_runs_and_smart_is_on_time():
     assert by["smart"]["collected"] == 40
     assert by["smart"]["on_time_pct"] >= by["fixed"]["on_time_pct"]
     assert by["smart"]["late_hazardous"] <= by["fixed"]["late_hazardous"]
+
+
+def test_forecast_simulated_and_selects_model():
+    import os, tempfile
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from app.database import Base
+    from app.engine.forecast import forecast
+
+    eng = create_engine(f"sqlite:///{tempfile.mkdtemp()}/f.db")
+    Base.metadata.create_all(eng)
+    f = forecast(sessionmaker(bind=eng)())
+    assert f["source"] == "simulated" and f["history_days"] == 120
+    assert len(f["city_forecast"]) == 8 and len(f["wards"]) == 10
+    assert f["used_model"] in ("sama", "ma7")
+    best = min(a["wape"] for a in f["accuracy"])
+    assert {a["model"]: a["wape"] for a in f["accuracy"]}[f["used_model"]] <= best + 1.5
+    deepavali = [c for c in f["city_forecast"] if c["festival"] == "Deepavali"]
+    if deepavali:  # inside the 8-day window -> forecast above a normal day
+        assert deepavali[0]["count"] > f["city_forecast"][1]["count"]
+    assert f["fleet"]["total_trucks"] >= 1

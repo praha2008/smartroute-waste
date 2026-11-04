@@ -114,13 +114,13 @@ Built:
 - [x] 14 days of Vellore demo history for analytics
 
 Next:
-- [ ] DBSCAN clustering (Haversine) of active requests → communities
-- [ ] OR-Tools CVRP with time windows (SLA) + penalties, compared against the greedy baseline
+- [x] DBSCAN clustering (Haversine) of active requests → communities, held isolated requests
+- [x] OR-Tools CVRP with SLA soft deadlines, priority penalties, waste-type compatibility; live urgent insertion
 - [ ] OSRM road-distance matrix (currently Haversine × 1.35 road factor)
-- [ ] Rolling-horizon re-planning + live insertion of urgent requests
-- [ ] Ward-level demand forecasting → suggested fleet size for tomorrow
+- [x] Rolling-horizon re-planning + live insertion of urgent requests
+- [x] Ward-level demand forecasting (seasonally adjusted model vs 4 baselines, backtested) → fleet size for tomorrow, festival spikes, regular generators due tomorrow
 - [ ] AI waste-photo classification
-- [ ] Evaluation: fixed-schedule baseline vs SmartRoute (km, CO₂, utilization, SLA %)
+- [x] Evaluation: fixed-schedule baseline vs greedy vs SmartRoute (km, CO₂, utilization, SLA %), demand sweep, re-planning trade-off
 
 ## Tests
 

@@ -238,6 +238,15 @@ def reset_demo(confirm: str = Query(..., description='type RESET to confirm'),
     return {"ok": True, "message": "Demo data reset. Please log in again."}
 
 
+# ------------------------------------------------------------------ forecasting
+@router.get("/forecast")
+def demand_forecast(_: User = Depends(admin), db: Session = Depends(get_db)):
+    """Ward-level demand forecast for today + 7 days, fleet suggestion and likely requesters."""
+    from ..engine.forecast import forecast
+
+    return forecast(db)
+
+
 # ------------------------------------------------------------------ evaluation
 @router.get("/evaluation")
 def published_evaluation(_: User = Depends(admin)):
