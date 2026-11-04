@@ -19,12 +19,13 @@ export default function Users() {
   const [resetOpen, setResetOpen] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [resetting, setResetting] = useState(false);
+  const [resetMode, setResetMode] = useState<'clean' | 'full'>('clean');
 
   const resetDemo = async () => {
     setResetting(true);
     setErr(null);
     try {
-      await api.post('/admin/reset-demo?confirm=RESET');
+      await api.post(`/admin/reset-demo?confirm=RESET&mode=${resetMode}`);
       setToken(null);
       window.location.hash = '#/overview';
       window.location.reload();
@@ -101,10 +102,29 @@ export default function Users() {
         <Modal title="Reset demo data" onClose={() => !resetting && setResetOpen(false)}>
           {err && <div className="error">{err}</div>}
           <p style={{ marginTop: 0 }}>
-            This <b>deletes everything</b> (requests, routes, users, photos) and loads a fresh Vellore demo: 30 days of history and
-            38 open requests covering every case (dense communities, isolated, urgent, overdue, skipped). Everyone on every app
-            will be logged out.
+            This <b>deletes everything</b> (requests, routes, credits, photos) and recreates the demo accounts and fleet.
+            Everyone on every app will be logged out.
           </p>
+          <div className="grid" style={{ gap: 8, marginBottom: 14 }}>
+            <label className={`card reset-opt ${resetMode === 'clean' ? 'on' : ''}`}>
+              <input type="radio" name="mode" checked={resetMode === 'clean'} onChange={() => setResetMode('clean')} />
+              <div>
+                <b>Clean start</b> <span className="badge tone-good">recommended for live demo</span>
+                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                  Accounts + 5 vehicles only. Zero requests: create them live from the citizen app.
+                </div>
+              </div>
+            </label>
+            <label className={`card reset-opt ${resetMode === 'full' ? 'on' : ''}`}>
+              <input type="radio" name="mode" checked={resetMode === 'full'} onChange={() => setResetMode('full')} />
+              <div>
+                <b>Full sample dataset</b>
+                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
+                  Adds 30 days of history (charts, analytics) and 38 open requests. Takes ~1–2 min online.
+                </div>
+              </div>
+            </label>
+          </div>
           <label className="field">
             Type RESET to confirm
             <input className="input" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} autoFocus />
@@ -114,7 +134,7 @@ export default function Users() {
               Cancel
             </button>
             <button className="btn primary" style={{ background: 'var(--bad)', borderColor: 'var(--bad)' }} disabled={confirmText !== 'RESET' || resetting} onClick={resetDemo}>
-              {resetting ? 'Resetting…' : 'Delete everything & reload demo'}
+              {resetting ? 'Resetting…' : resetMode === 'clean' ? 'Delete everything & start clean' : 'Delete everything & load sample data'}
             </button>
           </div>
         </Modal>

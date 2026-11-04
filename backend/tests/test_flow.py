@@ -68,8 +68,8 @@ def test_full_flow():
     assert client.get(f"/requests/{req_id}", headers=cit).json()["status"] == "in_progress"
     assert client.post("/collector/location", headers=drv, json={"lat": 12.921, "lng": 79.134}).status_code == 200
 
-    # dynamic insertion: a new hazardous request goes straight into an already-planned truck
-    r = client.post("/requests", headers=cit, json={"waste_type": "hazardous", "urgency": "high",
+    # dynamic insertion: a new critical request goes straight into an already-planned compatible truck
+    r = client.post("/requests", headers=cit, json={"waste_type": "recyclable", "urgency": "critical",
                                                      "est_kg": 2, "lat": 12.921, "lng": 79.136})
     assert r.status_code == 201 and r.json()["route_id"] is not None, r.text
     assert r.json()["status"] in ("scheduled", "in_progress")
@@ -129,4 +129,9 @@ def test_reset_demo_logs_everyone_out():
     assert client.get("/auth/me", headers=cit).status_code == 401
     assert client.get("/admin/overview", headers=adm).status_code == 401
     adm2 = login("admin@smartroute.in", "admin123")
-    assert client.get("/admin/overview", headers=adm2).json()["open_requests"] == 38
+    ov = client.get("/admin/overview", headers=adm2).json()
+    assert ov["requests_total"] == 0 and ov["vehicles_total"] == 5  # clean start
+    # full dataset option
+    assert client.post("/admin/reset-demo?confirm=RESET&mode=full", headers=adm2).status_code == 200
+    adm3 = login("admin@smartroute.in", "admin123")
+    assert client.get("/admin/overview", headers=adm3).json()["open_requests"] == 38

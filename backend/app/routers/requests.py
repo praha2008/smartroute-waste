@@ -28,8 +28,8 @@ def create_request(body: PickupCreate, user: User = Depends(citizen), db: Sessio
             PickupRequest.user_id == user.id, PickupRequest.status.in_(["pending", "scheduled", "in_progress"])
         )
     )
-    if open_count >= 5:
-        raise HTTPException(400, "You already have 5 open requests. Please wait for them to be collected.")
+    if open_count >= 15:
+        raise HTTPException(400, "You already have 15 open requests. Please wait for them to be collected.")
     now = utcnow()
     req = PickupRequest(
         user_id=user.id,

@@ -1,4 +1,6 @@
-"""Fresh demo data for Vellore.   Run:  python -m app.seed --reset
+"""Fresh demo data for Vellore.
+Run:  python -m app.seed --reset          -> CLEAN start: accounts + fleet, no requests (default)
+      python -m app.seed --reset --full   -> also 30 days of history + 38 scenario requests
 (or press "Reset demo data" in the dashboard -> Users page)
 
 What it creates
@@ -90,7 +92,9 @@ def new_request(user: User, wt: str, urg: str, kg: float, created: datetime, lat
     return r
 
 
-def seed(reset: bool) -> None:
+def seed(reset: bool, mode: str = "clean") -> None:
+    """mode="clean": accounts + fleet only, NO requests/history (for live demos).
+    mode="full":  also 30 days of history and 38 scenario requests."""
     if reset:
         Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
@@ -161,9 +165,21 @@ def seed(reset: bool) -> None:
                  password_hash=pw["citizen"], phone=f"97{j:08d}", ward=ward, lat=lat, lng=lng,
                  address=f"{rnd.randint(1, 60)}, Main Road, {ward}, Vellore")
         citizens.append(c)
+    if mode == "clean":
+        # a small set of accounts for live demos: 9 households in different wards + 1 business
+        citizens = [c for c in citizens if c.account_type == "household"][:9] + \
+                   [c for c in citizens if c.account_type == "business"][:1]
     db.add_all(citizens)
     db.flush()
     biz_mult = {b[0]: b[2] for b in BUSINESSES}
+    if mode == "clean":
+        db.commit()
+        print("Seeded CLEAN start:", db.query(User).count(), "users |", db.query(Vehicle).count(),
+              "vehicles | 0 requests")
+        print("Logins: admin@smartroute.in/admin123 | driver1..5@smartroute.in/driver123 | citizen@smartroute.in, "
+              "user1..8@smartroute.in, business@smartroute.in/citizen123 | recycler@smartroute.in/recycler123")
+        db.close()
+        return
     careless = citizens[7]  # this user's estimates are always far off -> low reliability
 
     def make_kg(user: User, wt: str) -> float:
@@ -339,4 +355,6 @@ def seed(reset: bool) -> None:
 if __name__ == "__main__":
     ap = argparse.ArgumentParser()
     ap.add_argument("--reset", action="store_true", help="drop all tables first")
-    seed(ap.parse_args().reset)
+    ap.add_argument("--full", action="store_true", help="also load 30 days of history + 38 scenario requests")
+    a = ap.parse_args()
+    seed(a.reset, "full" if a.full else "clean")
