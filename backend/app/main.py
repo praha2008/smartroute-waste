@@ -5,11 +5,12 @@ from fastapi.staticfiles import StaticFiles
 from sqlalchemy.orm import Session
 
 from . import config
-from .database import Base, engine, get_db
+from .database import Base, add_missing_columns, engine, get_db
 from .models import StoredImage
-from .routers import admin, auth, collector, recycler, requests
+from .routers import admin, ai, auth, collector, recycler, requests
 
 Base.metadata.create_all(bind=engine)
+add_missing_columns()
 
 if config.SEED_ON_START:
     from .seed import seed
@@ -28,7 +29,7 @@ app.add_middleware(
 # legacy on-disk uploads (photos are now stored in the database, see /images)
 app.mount("/uploads", StaticFiles(directory=config.UPLOAD_DIR), name="uploads")
 
-for r in (auth.router, requests.router, collector.router, recycler.router, admin.router):
+for r in (auth.router, requests.router, collector.router, recycler.router, admin.router, ai.router):
     app.include_router(r)
 
 

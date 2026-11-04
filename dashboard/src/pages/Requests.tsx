@@ -52,6 +52,7 @@ export default function Requests() {
               <th>#</th>
               <th>Requested by</th>
               <th>Type</th>
+              <th>AI check</th>
               <th>Urgency</th>
               <th className="num">Est.</th>
               <th className="num">Actual</th>
@@ -76,6 +77,9 @@ export default function Requests() {
                   <td>
                     <Waste t={r.waste_type} />
                   </td>
+                  <td>
+                    <AiBadge r={r} />
+                  </td>
                   <td>{URGENCY[r.urgency]}</td>
                   <td className="num">{kg(r.est_kg)}</td>
                   <td className="num">{kg(r.actual_kg)}</td>
@@ -92,7 +96,7 @@ export default function Requests() {
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={10} className="faint" style={{ textAlign: 'center', padding: 30 }}>
+                <td colSpan={11} className="faint" style={{ textAlign: 'center', padding: 30 }}>
                   No requests match.
                 </td>
               </tr>
@@ -106,6 +110,7 @@ export default function Requests() {
             {[
               ['Requested by', `${open.requester_name ?? '—'} · ${open.requester_phone ?? ''}`],
               ['Type', WASTE[open.waste_type]?.label],
+              ['AI photo check', open.ai_type ? `${WASTE[open.ai_type]?.label ?? open.ai_type} (${open.ai_item}, ${Math.round(open.ai_confidence * 100)}%)${open.ai_mismatch ? ' - does not match!' : ' - matches'}` : '—'],
               ['Urgency', URGENCY[open.urgency]],
               ['Estimated / actual', `${kg(open.est_kg)} / ${kg(open.actual_kg)}`],
               ['Status', open.status],
@@ -131,5 +136,22 @@ export default function Requests() {
         </Modal>
       )}
     </>
+  );
+}
+
+
+function AiBadge({ r }: { r: any }) {
+  if (!r.ai_type) return <span className="faint">—</span>;
+  const pct = Math.round((r.ai_confidence ?? 0) * 100);
+  if (r.ai_mismatch)
+    return (
+      <span className="badge tone-warn" title={`Photo looks like ${r.ai_item}`}>
+        ⚠ {WASTE[r.ai_type]?.label ?? r.ai_type} {pct}%
+      </span>
+    );
+  return (
+    <span className="badge tone-good" title={`Photo looks like ${r.ai_item}`}>
+      ✓ {pct}%
+    </span>
   );
 }

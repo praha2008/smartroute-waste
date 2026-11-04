@@ -55,20 +55,38 @@ def create_request(body: PickupCreate, user: User = Depends(citizen), db: Sessio
     return req
 
 
+def _ai_check(req: PickupRequest, raw: bytes) -> None:
+    """Run the waste-photo classifier (if installed) and store its verdict on the request."""
+    try:
+        from ..ai import classifier
+
+        res = classifier.classify(raw)
+    except Exception:
+        res = None
+    if res:
+        req.ai_type, req.ai_confidence, req.ai_item = res["waste_type"], res["confidence"], res["item"]
+
+
 @router.post("/{req_id}/photo", response_model=PickupOut)
 async def upload_photo(
     req_id: int, file: UploadFile = File(...), user: User = Depends(citizen), db: Session = Depends(get_db)
 ):
     req = _own(db, req_id, user)
+    raw = await file.read()
+    await file.seek(0)
     req.photo_url = await save_image(file, f"req{req.id}")
+    _ai_check(req, raw)
     db.commit()
     return req
 
 
 @router.post("/{req_id}/photo64", response_model=PickupOut)
 def upload_photo_base64(req_id: int, body: PhotoIn, user: User = Depends(citizen), db: Session = Depends(get_db)):
+    import base64
+
     req = _own(db, req_id, user)
     req.photo_url = save_base64_image(body.data, f"req{req.id}")
+    _ai_check(req, base64.b64decode(body.data.split(",", 1)[1] if "," in body.data[:100] else body.data))
     db.commit()
     return req
 

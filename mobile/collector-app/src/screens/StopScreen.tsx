@@ -86,6 +86,14 @@ export default function StopScreen({ params }: { params: Params }) {
         </View>
         {late ? <Badge label="SLA LATE" color={colors.danger} soft={colors.dangerSoft} /> : null}
       </View>
+      {r.ai_mismatch && (
+        <Card style={{ backgroundColor: colors.warningSoft, borderColor: colors.warningSoft }}>
+          <Text style={{ color: colors.warning, fontWeight: '700' }}>
+            AI check: the citizen's photo looks like {wasteMeta(r.ai_type ?? '').label} ({r.ai_item}, {Math.round((r.ai_confidence ?? 0) * 100)}%), not{' '}
+            {w.label}. Please verify before loading.
+          </Text>
+        </Card>
+      )}
       {r.waste_type === 'hazardous' && (
         <Card style={{ backgroundColor: colors.dangerSoft, borderColor: colors.dangerSoft }}>
           <Text style={{ color: colors.danger, fontWeight: '700' }}>Wear gloves & mask. Keep separate from other waste.</Text>

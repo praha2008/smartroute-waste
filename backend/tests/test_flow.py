@@ -3,8 +3,8 @@ import os
 import tempfile
 
 _db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-os.environ["DATABASE_URL"] = f"sqlite:///{_db.name}"
-os.environ["UPLOAD_DIR"] = tempfile.mkdtemp()
+os.environ.setdefault("DATABASE_URL", f"sqlite:///{_db.name}")
+os.environ.setdefault("UPLOAD_DIR", tempfile.mkdtemp())
 
 from fastapi.testclient import TestClient  # noqa: E402
 

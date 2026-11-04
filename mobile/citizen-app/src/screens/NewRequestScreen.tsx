@@ -17,6 +17,14 @@ const BASE_SLA_H: Record<WasteType, number> = { organic: 12, recyclable: 48, haz
 const SLA_FACTOR: Record<Urgency, number> = { low: 2, medium: 1, high: 0.5, critical: 0.25 };
 const QUICK_KG = [1, 2, 5, 10, 25, 50];
 
+interface AiResult {
+  waste_type: string;
+  confidence: number;
+  item: string;
+  item_confidence: number;
+  types: Record<string, number>;
+}
+
 function slaText(t: WasteType, u: Urgency) {
   const h = BASE_SLA_H[t] * SLA_FACTOR[u];
   return h < 24 ? `within ${h % 1 ? h.toFixed(1) : h} hours` : `within ${Math.round(h / 24)} day${h >= 48 ? 's' : ''}`;
@@ -35,6 +43,26 @@ export default function NewRequestScreen() {
   const [busy, setBusy] = useState(false);
   const [locating, setLocating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ai, setAi] = useState<AiResult | null>(null);
+  const [aiBusy, setAiBusy] = useState(false);
+
+  /** Pick a photo and ask the AI model which waste type it shows (silently skipped if the model is not installed). */
+  const takePhoto = async () => {
+    const p = await pickPhoto();
+    if (!p) return;
+    setPhoto(p);
+    setAi(null);
+    setAiBusy(true);
+    try {
+      const res = await api.post<AiResult>('/ai/classify', { data: p.base64 });
+      setAi(res);
+      if (!type) setType(res.waste_type as WasteType);
+    } catch {
+      /* model not available - the citizen just picks the type */
+    } finally {
+      setAiBusy(false);
+    }
+  };
 
   const locate = async () => {
     setLocating(true);
@@ -84,6 +112,42 @@ export default function NewRequestScreen() {
       back
       footer={<Button title="Submit request" icon="send" onPress={submit} loading={busy} disabled={!type} />}
     >
+      <Pressable onPress={takePhoto} style={styles.aiBox}>
+        {photo ? (
+          <Image source={{ uri: photo.uri }} style={styles.aiThumb} />
+        ) : (
+          <View style={[styles.aiThumb, { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft }]}>
+            <Ionicons name="camera" size={26} color={colors.accentDark} />
+          </View>
+        )}
+        <View style={{ flex: 1 }}>
+          {aiBusy ? (
+            <Text style={[font.body, { fontWeight: '700' }]}>Checking the photo…</Text>
+          ) : ai ? (
+            <>
+              <Text style={[font.small, { fontWeight: '700', color: colors.accentDark }]}>AI SUGGESTION</Text>
+              <Text style={[font.body, { fontWeight: '700' }]}>
+                {WASTE[ai.waste_type as WasteType]?.label ?? ai.waste_type} · {Math.round(ai.confidence * 100)}%
+              </Text>
+              <Text style={font.small}>Looks like: {ai.item}</Text>
+            </>
+          ) : (
+            <>
+              <Text style={[font.body, { fontWeight: '700' }]}>{photo ? 'Photo added' : 'Snap a photo first'}</Text>
+              <Text style={font.small}>{photo ? 'Tap to retake' : 'Our AI suggests the waste type from the photo'}</Text>
+            </>
+          )}
+        </View>
+      </Pressable>
+      {ai && type && ai.waste_type !== type && ai.confidence >= 0.7 && (
+        <Pressable onPress={() => setType(ai.waste_type as WasteType)} style={styles.aiWarn}>
+          <Ionicons name="alert-circle" size={18} color={colors.warning} />
+          <Text style={{ flex: 1, color: colors.warning, fontWeight: '600' }}>
+            The photo looks like {WASTE[ai.waste_type as WasteType]?.label}. Tap to switch, or keep your choice.
+          </Text>
+        </Pressable>
+      )}
+
       <Text style={font.tiny}>1 · WHAT KIND OF WASTE?</Text>
       <View style={styles.grid}>
         {WASTE_ORDER.map((t) => {
@@ -148,17 +212,7 @@ export default function NewRequestScreen() {
         <Input value={address} onChangeText={setAddress} placeholder="Address / landmark" />
       </Section>
 
-      <Section title="5 · Photo & notes (optional)">
-        <Pressable onPress={async () => setPhoto((await pickPhoto()) ?? photo)} style={styles.photoBox}>
-          {photo ? (
-            <Image source={{ uri: photo.uri }} style={{ width: '100%', height: '100%' }} />
-          ) : (
-            <View style={{ alignItems: 'center' }}>
-              <Ionicons name="camera-outline" size={28} color={colors.textMuted} />
-              <Text style={[font.small, { marginTop: 4 }]}>Add a photo of the waste</Text>
-            </View>
-          )}
-        </Pressable>
+      <Section title="5 · Notes (optional)">
         <Input value={notes} onChangeText={setNotes} placeholder="e.g. Bags kept near the gate" multiline />
       </Section>
 
@@ -189,6 +243,28 @@ const styles = StyleSheet.create({
   },
   radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   radioDot: { width: 10, height: 10, borderRadius: 5 },
+  aiBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.md,
+    backgroundColor: colors.card,
+    borderRadius: radius.md,
+    padding: space.md,
+    borderWidth: 1.5,
+    borderColor: colors.accent,
+    borderStyle: 'dashed',
+    marginBottom: space.md,
+  },
+  aiThumb: { width: 64, height: 64, borderRadius: radius.sm },
+  aiWarn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.sm,
+    backgroundColor: colors.warningSoft,
+    borderRadius: radius.md,
+    padding: space.md,
+    marginBottom: space.md,
+  },
   photoBox: {
     height: 150,
     borderRadius: radius.md,

@@ -115,6 +115,10 @@ class PickupOut(ORM):
     route_id: int | None
     credits_awarded: int
     skip_reason: str | None
+    ai_type: str | None = None
+    ai_confidence: float | None = None
+    ai_item: str | None = None
+    ai_mismatch: bool = False
     created_at: UTC
     scheduled_at: UTC | None
     collected_at: UTC | None

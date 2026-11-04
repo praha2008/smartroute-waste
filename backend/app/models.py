@@ -106,12 +106,22 @@ class PickupRequest(Base):
     route_id: Mapped[int | None] = mapped_column(ForeignKey("routes.id"))
     credits_awarded: Mapped[int] = mapped_column(Integer, default=0)
     skip_reason: Mapped[str | None] = mapped_column(String(255))
+    # AI photo check (filled when the citizen's photo is classified)
+    ai_type: Mapped[str | None] = mapped_column(String(20))
+    ai_confidence: Mapped[float | None] = mapped_column(Float)
+    ai_item: Mapped[str | None] = mapped_column(String(60))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow, index=True)
     scheduled_at: Mapped[datetime | None] = mapped_column(DateTime)
     collected_at: Mapped[datetime | None] = mapped_column(DateTime)
 
     user: Mapped[User] = relationship(back_populates="requests", foreign_keys=[user_id])
     route: Mapped[Route | None] = relationship()
+
+    @property
+    def ai_mismatch(self) -> bool:
+        """AI is confident the photo shows a different waste type than the citizen selected."""
+        return bool(self.ai_type and self.ai_confidence is not None and self.ai_confidence >= 0.70
+                    and self.ai_type != self.waste_type)
 
 
 class RouteStop(Base):

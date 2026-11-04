@@ -119,7 +119,7 @@ Next:
 - [ ] OSRM road-distance matrix (currently Haversine × 1.35 road factor)
 - [x] Rolling-horizon re-planning + live insertion of urgent requests
 - [x] Ward-level demand forecasting (seasonally adjusted model vs 4 baselines, backtested) → fleet size for tomorrow, festival spikes, regular generators due tomorrow
-- [ ] AI waste-photo classification
+- [x] AI waste-photo classification (MobileNetV3 → ONNX, trained in Colab: `ml/`), suggestion in citizen app, mis-segregation flag for admin & driver
 - [x] Evaluation: fixed-schedule baseline vs greedy vs SmartRoute (km, CO₂, utilization, SLA %), demand sweep, re-planning trade-off
 
 ## Tests

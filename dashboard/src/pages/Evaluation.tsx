@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { api } from '../api';
+import { API_URL, api } from '../api';
 import { LineChart } from '../components/Charts';
 import { Kpi, PageHead, useData } from '../ui';
 
@@ -72,6 +72,7 @@ function download(name: string, text: string) {
 
 export default function Evaluation() {
   const { data: pub, error } = useData<Published>('/admin/evaluation');
+  const { data: aiStatus } = useData<any>('/ai/status');
   const [live, setLive] = useState<EvalResult | null>(null);
   const [form, setForm] = useState({ requests: 120, seed: 7, replan_h: 4 });
   const [running, setRunning] = useState(false);
@@ -277,6 +278,51 @@ export default function Evaluation() {
             <li>300 registered households and businesses across 10 Vellore wards; requests arrive 06:00–19:00 with a morning peak.</li>
           </ul>
         </div>
+      </div>
+      <div className="card card-pad" style={{ marginTop: 16 }}>
+        <div className="card-title">AI waste-photo classifier</div>
+        {!aiStatus ? (
+          <div className="faint">Checking…</div>
+        ) : !aiStatus.available ? (
+          <div className="muted">
+            Not installed yet. Train it with <code>ml/train_waste_classifier.ipynb</code> in Google Colab and copy the result to{' '}
+            <code>backend/app/ai/model/</code>. Until then the apps simply skip the AI suggestion.
+          </div>
+        ) : (
+          <div className="grid two-even">
+            <div>
+              <div className="grid kpis" style={{ gridTemplateColumns: 'repeat(2, minmax(0,1fr))' }}>
+                <Kpi label="Test accuracy · waste type" value={`${Math.round(aiStatus.test_accuracy_type * 1000) / 10}%`} sub="organic / recyclable / hazardous / e-waste / mixed" />
+                <Kpi label="Test accuracy · item" value={`${Math.round(aiStatus.test_accuracy_item * 1000) / 10}%`} sub={`${aiStatus.item_classes?.length} item classes`} />
+              </div>
+              <p className="muted" style={{ fontSize: 13 }}>
+                {aiStatus.architecture}, trained {aiStatus.trained} on {aiStatus.images?.train} photos ({(aiStatus.datasets ?? []).join(', ')}); tested on{' '}
+                {aiStatus.images?.test} unseen photos.
+              </p>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Waste type</th>
+                    <th className="num">Precision</th>
+                    <th className="num">Recall</th>
+                    <th className="num">F1</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {Object.entries(aiStatus.per_type ?? {}).map(([t, m]: [string, any]) => (
+                    <tr key={t}>
+                      <td>{t}</td>
+                      <td className="num">{m.precision}</td>
+                      <td className="num">{m.recall}</td>
+                      <td className="num">{m['f1-score']}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {aiStatus.confusion_png && <img src={`${API_URL}/ai/confusion.png`} alt="Confusion matrix" style={{ width: '100%', maxWidth: 460, justifySelf: 'center' }} />}
+          </div>
+        )}
       </div>
     </>
   );

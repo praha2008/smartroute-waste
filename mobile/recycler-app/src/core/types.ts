@@ -43,6 +43,10 @@ export interface Pickup {
   route_id: number | null;
   credits_awarded: number;
   skip_reason: string | null;
+  ai_type?: string | null;
+  ai_confidence?: number | null;
+  ai_item?: string | null;
+  ai_mismatch?: boolean;
   created_at: string;
   scheduled_at: string | null;
   collected_at: string | null;

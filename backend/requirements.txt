@@ -5,6 +5,8 @@ pydantic>=2.7
 pyjwt>=2.8
 python-multipart>=0.0.9
 psycopg[binary]>=3.2   # PostgreSQL driver (used when DATABASE_URL points to Postgres)
+onnxruntime>=1.18     # runs the waste-photo classifier (CPU)
+pillow>=10            # image decoding for the classifier
 # --- used in the next phases (clustering / routing / forecasting) ---
 scikit-learn>=1.5    # DBSCAN clustering
 ortools>=9.12       # CVRP route optimisation
