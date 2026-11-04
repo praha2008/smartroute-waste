@@ -284,6 +284,8 @@ def test_ola_maps_search_details_and_reverse(monkeypatch):
             return {"results": [{"formatted_address": "12, Gandhi Rd, Katpadi, Vellore, Tamil Nadu 632007, India", "name": ""}]}
         raise AssertionError(url)
     monkeypatch.setattr(geo, "_get", fake)
+    monkeypatch.setattr(geo, "_ola", lambda path, params: fake(f"{geo.OLA}/{path}?" + __import__("urllib.parse").parse.urlencode(
+        {**params, "api_key": "ola-key"}, safe=",:")))
     r = c.get("/geo/search?q=vit&lat=12.92&lng=79.13").json()
     assert r["provider"] == "ola"
     assert r["results"][0] == {"title": "VIT Vellore", "subtitle": "Katpadi, Vellore, Tamil Nadu", "lat": 12.9692, "lng": 79.1559}
@@ -310,3 +312,17 @@ def test_free_search_prefers_nearby_results(monkeypatch):
     monkeypatch.setattr(geo, "_get", fake)
     r = c.get("/geo/search?q=vit uni&lat=12.92&lng=79.13").json()["results"]
     assert r[0]["title"] == "VIT Vellore"
+
+
+def test_ola_error_is_reported_without_the_key(monkeypatch):
+    from app import config
+    from app.routers import geo
+
+    monkeypatch.setattr(config, "GOOGLE_MAPS_API_KEY", "")
+    monkeypatch.setattr(config, "OLA_MAPS_API_KEY", "secret-key")
+    def bad(path, params):
+        raise RuntimeError("HTTP 401: invalid api_key secret-key")
+    monkeypatch.setattr(geo, "_ola", bad)
+    monkeypatch.setattr(geo, "_get", lambda url: {"features": []} if "photon" in url else [])
+    r = c.get("/geo/search?q=xyz").json()
+    assert any("HTTP 401" in d for d in r["detail"]) and not any("secret-key" in d for d in r["detail"])

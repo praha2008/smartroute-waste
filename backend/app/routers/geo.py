@@ -7,6 +7,7 @@ position (or Vellore) and cached. Falls back to Nominatim for reverse geocoding.
 """
 import json
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 
@@ -84,11 +85,30 @@ OLA = "https://api.olamaps.io/places/v1"
 
 
 def _ola(path: str, params: dict) -> dict:
-    return _get(f"{OLA}/{path}?" + urllib.parse.urlencode({**params, "api_key": config.OLA_MAPS_API_KEY}, safe=",:"))
+    """Call Ola Maps. Errors are raised with Ola's own message (key hidden) so /geo/search can show them."""
+    import uuid
+
+    url = f"{OLA}/{path}?" + urllib.parse.urlencode({**params, "api_key": config.OLA_MAPS_API_KEY}, safe=",:")
+    hit = _cache.get(url)
+    if hit and time.time() - hit[0] < TTL:
+        return hit[1]  # type: ignore[return-value]
+    req = urllib.request.Request(url, headers={**UA, "X-Request-Id": str(uuid.uuid4()), "Accept": "application/json"})
+    try:
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read())
+    except urllib.error.HTTPError as e:
+        body = (e.read() or b"")[:300].decode("utf-8", "replace").replace(config.OLA_MAPS_API_KEY, "***")
+        raise RuntimeError(f"HTTP {e.code}: {body}")
+    if len(_cache) > 2000:
+        _cache.clear()
+    _cache[url] = (time.time(), data)
+    return data
 
 
 def _ola_search(q: str, lat: float, lng: float, limit: int) -> list[dict]:
     data = _ola("autocomplete", {"input": q, "location": f"{lat:.6f},{lng:.6f}", "radius": 50000})
+    if "predictions" not in data:
+        raise RuntimeError(f"unexpected reply: {json.dumps(data)[:250]}")
     out = []
     for p in data.get("predictions", [])[:limit]:
         fmt = p.get("structured_formatting") or {}
@@ -146,18 +166,20 @@ def search(q: str = Query(..., min_length=2, max_length=120), lat: float | None 
             return {"results": _google_search(q, clat, clng, limit, session, "ta" if lang == "ta" else "en"), "provider": "google"}
         except Exception:
             pass  # fall through to the next provider
+    ola_note = None
     if config.OLA_MAPS_API_KEY:
         try:
             res = _ola_search(q, clat, clng, limit)
             if res:
                 return {"results": res, "provider": "ola"}
-        except Exception:
-            pass
+            ola_note = "ola: no results"
+        except Exception as e:
+            ola_note = f"ola: {str(e).replace(config.OLA_MAPS_API_KEY, '***')[:300]}"
     params = {"q": q, "limit": max(limit, 10), "lat": f"{clat:.5f}", "lon": f"{clng:.5f}", "lang": "en",
               # roughly Tamil Nadu + neighbours, so "Gandhi Nagar" finds the Vellore one first
               "bbox": "75.5,8.0,81.0,14.5"}
     out: list[dict] = []
-    errors = []
+    errors = [ola_note] if ola_note else []
     try:
         data = _get("https://photon.komoot.io/api/?" + urllib.parse.urlencode(params))
         for f in data.get("features", []):
@@ -177,7 +199,7 @@ def search(q: str = Query(..., min_length=2, max_length=120), lat: float | None 
     out.sort(key=lambda r: haversine_km(clat, clng, r["lat"], r["lng"]) if "lat" in r else 0)
     out = out[:limit]
     if out:
-        return {"results": out, "provider": "osm"}
+        return {"results": out, "provider": "osm", **({"detail": errors} if errors else {})}
     return {"results": [], "error": "Place search is unavailable right now" if errors else None, "detail": errors}
 
 
