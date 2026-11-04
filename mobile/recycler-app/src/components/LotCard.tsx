@@ -2,6 +2,7 @@ import React from 'react';
 import { Text, View } from 'react-native';
 
 import { inr, kg, km, timeAgo } from '../core/format';
+import { t } from '../core/i18n';
 import { useNav } from '../core/nav';
 import { colors, font, space } from '../core/theme';
 import type { Lot } from '../core/types';
@@ -24,7 +25,7 @@ export default function LotCard({ lot }: { lot: Lot }) {
             <Text style={{ fontWeight: '800', fontSize: 16, color: colors.accentDark }}>{inr(lot.total_value)}</Text>
           </Row>
           <Text style={[font.small, { marginTop: 2 }]}>
-            {lot.ward ?? 'Vellore'} · {lot.distance_km !== null ? `${km(lot.distance_km)} away` : ''} · {timeAgo(lot.created_at)}
+            {lot.ward ?? 'Vellore'} · {lot.distance_km !== null ? t('mk.away', { km: km(lot.distance_km) }) : ''} · {timeAgo(lot.created_at)}
           </Text>
           <Row style={{ marginTop: 6, justifyContent: 'space-between' }}>
             <Badge label={s.label} color={s.color} soft={s.soft} />

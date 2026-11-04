@@ -2,7 +2,7 @@
   "expo": {
     "name": "SmartRoute",
     "slug": "smartroute-citizen",
-    "version": "1.0.0",
+    "version": "2.0.0",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F4F6F5",
@@ -16,15 +16,14 @@
       "permissions": [
         "android.permission.ACCESS_FINE_LOCATION",
         "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.CAMERA",
-        "android.permission.ACCESS_COARSE_LOCATION",
-        "android.permission.ACCESS_FINE_LOCATION",
-        "android.permission.RECORD_AUDIO"
+        "android.permission.CAMERA"
       ],
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#1B7F5A"
-      }
+      },
+      "versionCode": 2,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "plugins": [
       [
@@ -46,6 +45,14 @@
           "android": {
             "usesCleartextTraffic": true
           }
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "backgroundColor": "#0D5A3D",
+          "image": "./assets/adaptive-icon.png",
+          "imageWidth": 160
         }
       ]
     ],

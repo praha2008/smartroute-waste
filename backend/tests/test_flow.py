@@ -26,7 +26,9 @@ def test_full_flow():
 
     # citizen registers and requests a recyclable pickup
     r = client.post("/auth/register", json={"name": "Test User", "email": "t@x.com", "password": "secret1",
-                                             "lat": 12.9200, "lng": 79.1350, "ward": "Velapadi"})
+                                             "phone": "98765 43210", "lat": 12.9200, "lng": 79.1350, "ward": "Velapadi"})
+    assert r.status_code == 200, r.text
+    r = client.post("/auth/verify-phone", json={"phone": "9876543210", "code": r.json()["dev_code"]})
     assert r.status_code == 200, r.text
     cit = {"Authorization": f"Bearer {r.json()['token']}"}
     r = client.post("/requests", headers=cit, json={"waste_type": "recyclable", "urgency": "critical",

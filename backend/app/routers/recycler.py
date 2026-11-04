@@ -10,7 +10,13 @@ from ..schemas import LotOut
 from ..security import require_role
 
 router = APIRouter(prefix="/recycler", tags=["recycler"])
-recycler = require_role("recycler")
+_recycler_role = require_role("recycler")
+
+
+def recycler(user: User = Depends(_recycler_role)) -> User:
+    if user.approved is False:
+        raise HTTPException(403, "Your recycler account is waiting for approval by the municipality.")
+    return user
 
 
 def _with_distance(lot: RecyclableLot, user: User) -> dict:

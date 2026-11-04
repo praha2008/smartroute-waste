@@ -22,3 +22,13 @@ def road_km(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
 
 def travel_minutes(km: float) -> float:
     return km / AVG_SPEED_KMPH * 60
+
+
+def nearest_ward(lat: float | None, lng: float | None) -> str | None:
+    """Name of the closest Vellore ward centre (within 8 km), used when the user doesn't pick one."""
+    if lat is None or lng is None:
+        return None
+    from .seed import WARDS  # local import: seed imports models
+
+    name, (wlat, wlng, *_rest) = min(WARDS.items(), key=lambda kv: haversine_km(lat, lng, kv[1][0], kv[1][1]))
+    return name if haversine_km(lat, lng, wlat, wlng) <= 8 else None

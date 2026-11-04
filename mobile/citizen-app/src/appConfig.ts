@@ -5,6 +5,7 @@ export const APP = {
   icon: 'leaf',
   accent: '#1B7F5A',
   accentDark: '#11573D',
+  gradient: ['#22A06B', '#0D5A3D'] as const,
   accentSoft: '#E3F2EB',
   allowRegister: true,
   demo: { email: 'citizen@smartroute.in', password: 'citizen123' },

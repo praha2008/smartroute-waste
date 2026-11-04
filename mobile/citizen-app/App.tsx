@@ -1,54 +1,51 @@
 import React from 'react';
-import { Text } from 'react-native';
+import { Text, View } from 'react-native';
 
-import { WARDS } from './src/appConfig';
 import AccountScreen from './src/core/AccountScreen';
+import type { RegisterExtraProps } from './src/core/AuthScreens';
+import { t } from './src/core/i18n';
 import Root from './src/core/Root';
-import { font, space } from './src/core/theme';
-import { Chip, Input, Row, Segmented } from './src/core/ui';
+import { space } from './src/core/theme';
+import { Input, Segmented } from './src/core/ui';
 import HomeScreen from './src/screens/HomeScreen';
 import NewRequestScreen from './src/screens/NewRequestScreen';
 import RequestDetailScreen from './src/screens/RequestDetailScreen';
 import RequestsScreen from './src/screens/RequestsScreen';
 import RewardsScreen from './src/screens/RewardsScreen';
 
-function RegisterExtra({ data, set }: { data: Record<string, any>; set: (k: string, v: any) => void }) {
+function RegisterExtra({ data, set }: RegisterExtraProps) {
   const type = data.account_type ?? 'household';
   return (
-    <>
-      <Text style={[font.small, { marginBottom: 6, fontWeight: '600' }]}>Account type</Text>
+    <View style={{ marginBottom: space.md }}>
+      <Text style={{ fontSize: 13, color: '#5B6762', marginBottom: 6, fontWeight: '700' }}>{t('reg.household')} / {t('reg.business')}</Text>
       <Segmented
         value={type}
         onChange={(v) => set('account_type', v)}
         options={[
-          { value: 'household', label: 'Household' },
-          { value: 'business', label: 'Business' },
+          { value: 'household', label: `🏠  ${t('reg.household')}` },
+          { value: 'business', label: `🏪  ${t('reg.business')}` },
         ]}
       />
-      <Row style={{ height: space.md }}>{null}</Row>
       {type === 'business' && (
-        <Input label="Business name" value={data.organization ?? ''} onChangeText={(v) => set('organization', v)} placeholder="e.g. Hotel Annapoorna" />
+        <View style={{ marginTop: space.md }}>
+          <Input label={t('reg.businessName')} icon="storefront-outline" value={data.organization ?? ''} onChangeText={(v) => set('organization', v)} placeholder="Hotel Annapoorna" />
+        </View>
       )}
-      <Text style={[font.small, { marginBottom: 6, fontWeight: '600' }]}>Ward / area</Text>
-      <Row style={{ flexWrap: 'wrap', marginBottom: space.md }} gap={6}>
-        {WARDS.map((w) => (
-          <Chip key={w} label={w} active={data.ward === w} onPress={() => set('ward', w)} />
-        ))}
-      </Row>
-      <Input label="Address" value={data.address ?? ''} onChangeText={(v) => set('address', v)} placeholder="Door no, street" />
-    </>
+    </View>
   );
 }
+
+const Account = () => <AccountScreen />;
 
 export default function App() {
   return (
     <Root
       RegisterExtra={RegisterExtra}
       tabs={[
-        { key: 'home', title: 'Home', icon: 'home', component: HomeScreen },
-        { key: 'requests', title: 'Pickups', icon: 'list', component: RequestsScreen },
-        { key: 'rewards', title: 'Rewards', icon: 'gift', component: RewardsScreen },
-        { key: 'account', title: 'Account', icon: 'person-circle', component: () => <AccountScreen /> },
+        { key: 'home', title: 'tab.home', icon: 'home', component: HomeScreen },
+        { key: 'requests', title: 'tab.pickups', icon: 'list', component: RequestsScreen },
+        { key: 'rewards', title: 'tab.rewards', icon: 'gift', component: RewardsScreen },
+        { key: 'account', title: 'tab.account', icon: 'person-circle', component: Account },
       ]}
       screens={{ NewRequest: NewRequestScreen, RequestDetail: RequestDetailScreen }}
     />

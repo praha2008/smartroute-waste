@@ -5,6 +5,7 @@ export const APP = {
   icon: 'refresh-circle',
   accent: '#C16A00',
   accentDark: '#8A4B00',
+  gradient: ['#E3901F', '#97500A'] as const,
   accentSoft: '#FBEEDC',
   allowRegister: true,
   demo: { email: 'recycler@smartroute.in', password: 'recycler123' },

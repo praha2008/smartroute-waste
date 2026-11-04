@@ -214,23 +214,86 @@ def list_users(role: str | None = None, _: User = Depends(admin), db: Session = 
 
 @router.post("/users", response_model=UserOut, status_code=201)
 def create_user(body: StaffCreate, _: User = Depends(admin), db: Session = Depends(get_db)):
+    """Staff accounts (drivers, admins, recyclers) get a temporary password they must change at first login."""
+    from .auth import normalize_phone
+
     email = body.email.strip().lower()
     if db.scalar(select(User).where(func.lower(User.email) == email)):
         raise HTTPException(400, "Email already used")
-    u = User(name=body.name, email=email, phone=body.phone, role=body.role, password_hash=hash_password(body.password))
+    phone = normalize_phone(body.phone) if body.phone else None
+    if phone and db.scalar(select(User).where(User.phone == phone)):
+        raise HTTPException(400, "Mobile number already used")
+    u = User(name=body.name, email=email, phone=phone, role=body.role, password_hash=hash_password(body.password),
+             phone_verified=True, approved=True, must_change_password=True)
     db.add(u)
     db.commit()
     return u
 
 
+@router.post("/users/{user_id}/set/{action}", response_model=UserOut)
+def user_action(user_id: int, action: Literal["approve", "disable", "enable"], me: User = Depends(admin),
+                db: Session = Depends(get_db)):
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(404, "User not found")
+    if u.id == me.id and action == "disable":
+        raise HTTPException(400, "You cannot disable your own account")
+    if action == "approve":
+        u.approved = True
+    else:
+        u.is_active = action == "enable"
+    db.commit()
+    return u
+
+
+@router.post("/users/{user_id}/reset-password")
+def admin_reset_password(user_id: int, _: User = Depends(admin), db: Session = Depends(get_db)):
+    """Give a user a temporary password (shown once to the admin); they must change it at next login."""
+    import secrets
+
+    u = db.get(User, user_id)
+    if not u:
+        raise HTTPException(404, "User not found")
+    temp = f"SR-{secrets.randbelow(900000) + 100000}"
+    u.password_hash = hash_password(temp)
+    u.must_change_password = True
+    db.commit()
+    return {"ok": True, "temporary_password": temp, "user": u.email}
+
+
+@router.post("/clear-operations")
+def clear_operations(confirm: str = Query(...), _: User = Depends(admin), db: Session = Depends(get_db)):
+    """Delete all requests, routes, lots and credits but keep every account and vehicle (rehearsal reset)."""
+    from ..models import CreditTransaction, RouteStop, StoredImage
+
+    if confirm != "CLEAR":
+        raise HTTPException(400, "Type CLEAR to confirm")
+    for model in (RouteStop, RecyclableLot, CreditTransaction):
+        db.query(model).delete()
+    db.query(PickupRequest).delete()
+    db.query(Route).delete()
+    db.query(StoredImage).delete()
+    for u in db.scalars(select(User)).all():
+        u.green_credits, u.reliability = 0, 1.0
+    for v in db.scalars(select(Vehicle)).all():
+        v.status = "idle" if v.status != "offline" else "offline"
+        v.cur_lat, v.cur_lng = v.depot_lat, v.depot_lng
+    db.commit()
+    return {"ok": True}
+
+
 @router.post("/reset-demo")
 def reset_demo(confirm: str = Query(..., description='type RESET to confirm'),
-               mode: Literal["clean", "full"] = Query("clean", description="clean = no requests; full = 30-day history"),
+               mode: Literal["clean", "full", "release"] = Query("clean", description="clean | full | release"),
                _: User = Depends(admin), db: Session = Depends(get_db)):
     """Wipe ALL data and reload the demo accounts (clean) or the full dataset. Everyone is logged out."""
     if confirm != "RESET":
         raise HTTPException(400, "Type RESET to confirm")
+    from .. import config
     from ..seed import seed
+
+    if config.APP_MODE == "release" and mode != "release":
+        raise HTTPException(400, "This server runs in release mode: only a release reset (admin + fleet) is allowed")
 
     db.rollback()
     db.close()  # release this request's locks before dropping tables

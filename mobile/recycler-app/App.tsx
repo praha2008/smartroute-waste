@@ -1,41 +1,17 @@
-import React, { useState } from 'react';
-import { Text } from 'react-native';
+import React from 'react';
 
 import AccountScreen from './src/core/AccountScreen';
-import { getCurrentLocation } from './src/core/device';
+import type { RegisterExtraProps } from './src/core/AuthScreens';
+import { t } from './src/core/i18n';
 import Root from './src/core/Root';
-import { colors, font } from './src/core/theme';
-import { Button, Input } from './src/core/ui';
+import { Input } from './src/core/ui';
 import ImpactScreen from './src/screens/ImpactScreen';
 import LotScreen from './src/screens/LotScreen';
 import MarketScreen from './src/screens/MarketScreen';
 import MyLotsScreen from './src/screens/MyLotsScreen';
 
-function RegisterExtra({ data, set }: { data: Record<string, any>; set: (k: string, v: any) => void }) {
-  const [busy, setBusy] = useState(false);
-  return (
-    <>
-      <Input label="Company / shop name" value={data.organization ?? ''} onChangeText={(v) => set('organization', v)} placeholder="e.g. Vellore Scrap Traders" />
-      <Input label="Yard address" value={data.address ?? ''} onChangeText={(v) => set('address', v)} placeholder="Street, area" />
-      <Button
-        title={data.lat ? 'Yard location saved ✔' : 'Use my current location as yard'}
-        icon="locate"
-        small
-        variant="secondary"
-        loading={busy}
-        onPress={async () => {
-          setBusy(true);
-          const p = await getCurrentLocation();
-          if (p) {
-            set('lat', p.lat);
-            set('lng', p.lng);
-          }
-          setBusy(false);
-        }}
-      />
-      <Text style={[font.small, { color: colors.textMuted, marginTop: 6, marginBottom: 12 }]}>Used to sort lots by distance from you.</Text>
-    </>
-  );
+function RegisterExtra({ data, set }: RegisterExtraProps) {
+  return <Input label={t('reg.company')} icon="briefcase-outline" value={data.organization ?? ''} onChangeText={(v) => set('organization', v)} placeholder="Vellore Scrap Traders" />;
 }
 
 const Account = () => <AccountScreen />;
@@ -45,10 +21,10 @@ export default function App() {
     <Root
       RegisterExtra={RegisterExtra}
       tabs={[
-        { key: 'market', title: 'Market', icon: 'storefront', component: MarketScreen },
-        { key: 'mine', title: 'My lots', icon: 'cube', component: MyLotsScreen },
-        { key: 'impact', title: 'Impact', icon: 'stats-chart', component: ImpactScreen },
-        { key: 'account', title: 'Account', icon: 'person-circle', component: Account },
+        { key: 'market', title: 'tab.market', icon: 'storefront', component: MarketScreen },
+        { key: 'mine', title: 'tab.myLots', icon: 'cube', component: MyLotsScreen },
+        { key: 'impact', title: 'tab.impact', icon: 'stats-chart', component: ImpactScreen },
+        { key: 'account', title: 'tab.account', icon: 'person-circle', component: Account },
       ]}
       screens={{ Lot: LotScreen }}
     />

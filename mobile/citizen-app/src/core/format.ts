@@ -1,3 +1,5 @@
+import { getLang, t } from './i18n';
+
 export function toDate(iso?: string | null): Date | null {
   return iso ? new Date(iso) : null;
 }
@@ -6,33 +8,33 @@ export function timeAgo(iso?: string | null): string {
   const d = toDate(iso);
   if (!d) return '—';
   const s = Math.round((Date.now() - d.getTime()) / 1000);
-  if (s < 60) return 'just now';
-  if (s < 3600) return `${Math.floor(s / 60)} min ago`;
-  if (s < 86400) return `${Math.floor(s / 3600)} h ago`;
-  return `${Math.floor(s / 86400)} d ago`;
+  if (s < 60) return t('time.justNow');
+  if (s < 3600) return t('time.minAgo', { n: Math.floor(s / 60) });
+  if (s < 86400) return t('time.hAgo', { n: Math.floor(s / 3600) });
+  return t('time.dAgo', { n: Math.floor(s / 86400) });
 }
 
 export function timeUntil(iso?: string | null): string {
   const d = toDate(iso);
   if (!d) return '—';
   const m = Math.round((d.getTime() - Date.now()) / 60000);
-  if (m < -60) return `${Math.floor(-m / 60)} h overdue`;
-  if (m < 0) return `${-m} min overdue`;
-  if (m < 60) return `in ${m} min`;
-  if (m < 1440) return `in ${Math.floor(m / 60)} h ${m % 60} min`;
-  return `in ${Math.floor(m / 1440)} d`;
+  if (m < -60) return t('time.hLate', { n: Math.floor(-m / 60) });
+  if (m < 0) return t('time.minLate', { n: -m });
+  if (m < 60) return t('time.inMin', { n: m });
+  if (m < 1440) return t('time.inHM', { h: Math.floor(m / 60), m: m % 60 });
+  return t('time.inD', { n: Math.floor(m / 1440) });
 }
 
 export function clock(iso?: string | null): string {
   const d = toDate(iso);
   if (!d) return '—';
-  return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return d.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
 export function dateTime(iso?: string | null): string {
   const d = toDate(iso);
   if (!d) return '—';
-  return `${d.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${clock(iso)}`;
+  return `${d.toLocaleDateString(getLang() === 'ta' ? 'ta-IN' : 'en-IN', { day: 'numeric', month: 'short' })}, ${clock(iso)}`;
 }
 
 export function kg(n?: number | null): string {

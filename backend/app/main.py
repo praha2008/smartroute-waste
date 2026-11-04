@@ -7,7 +7,7 @@ from sqlalchemy.orm import Session
 from . import config
 from .database import Base, add_missing_columns, engine, get_db
 from .models import StoredImage
-from .routers import admin, ai, auth, collector, recycler, requests
+from .routers import admin, ai, auth, collector, geo, recycler, requests
 
 Base.metadata.create_all(bind=engine)
 add_missing_columns()
@@ -15,7 +15,13 @@ add_missing_columns()
 if config.SEED_ON_START:
     from .seed import seed
 
-    seed(reset=False)  # only fills an empty database
+    seed(reset=False, mode="release" if config.APP_MODE == "release" else "clean")  # only fills an empty database
+
+from .database import SessionLocal  # noqa: E402
+from .seed import ensure_admin  # noqa: E402
+
+with SessionLocal() as _db:
+    ensure_admin(_db)  # real admin from ADMIN_EMAIL / ADMIN_PASSWORD
 
 app = FastAPI(
     title="SmartRoute Waste API",
@@ -29,7 +35,7 @@ app.add_middleware(
 # legacy on-disk uploads (photos are now stored in the database, see /images)
 app.mount("/uploads", StaticFiles(directory=config.UPLOAD_DIR), name="uploads")
 
-for r in (auth.router, requests.router, collector.router, recycler.router, admin.router, ai.router):
+for r in (auth.router, requests.router, collector.router, recycler.router, admin.router, ai.router, geo.router):
     app.include_router(r)
 
 
@@ -55,4 +61,7 @@ def meta():
         "waste_types": config.WASTE_TYPES,
         "urgency_levels": config.URGENCY_LEVELS,
         "recycle_prices": config.RECYCLE_PRICES,
+        "app_mode": config.APP_MODE,
+        "sms_live": config.SMS_CONFIGURED,
+        "email_live": config.EMAIL_CONFIGURED,
     }

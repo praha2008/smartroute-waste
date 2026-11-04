@@ -2,14 +2,17 @@ import { Ionicons } from '@expo/vector-icons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
+import PickupCard from '../components/PickupCard';
 import { useAuth } from '../core/auth';
 import { kg } from '../core/format';
+import { haptic } from '../core/haptics';
 import { useApi } from '../core/hooks';
+import { t } from '../core/i18n';
 import { useNav } from '../core/nav';
-import { colors, font, radius, space } from '../core/theme';
+import { colors, font, radius, shadow, space } from '../core/theme';
 import type { Pickup } from '../core/types';
-import { Button, Empty, ErrorBox, Row, Screen, Section, Stat } from '../core/ui';
-import PickupCard from '../components/PickupCard';
+import { Button, Empty, ErrorBox, Row, Screen, Section, Skeleton, Stat } from '../core/ui';
+import { WASTE, WASTE_ORDER } from '../core/waste';
 
 interface Stats {
   total_requests: number;
@@ -28,7 +31,8 @@ export default function HomeScreen() {
   const stats = useApi<Stats>('/requests/stats');
   const active = (reqs.data ?? []).filter((r) => ['pending', 'scheduled', 'in_progress'].includes(r.status));
   const hour = new Date().getHours();
-  const greet = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+  const greet = hour < 12 ? t('home.morning') : hour < 17 ? t('home.afternoon') : t('home.evening');
+  const credits = stats.data?.green_credits ?? user?.green_credits ?? 0;
 
   return (
     <Screen
@@ -38,42 +42,67 @@ export default function HomeScreen() {
         stats.reload();
         refreshUser();
       }}
+      hero={
+        <View>
+          <Row style={{ justifyContent: 'space-between' }}>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.greet}>{greet} 👋</Text>
+              <Text style={[font.h1, { color: colors.white }]} numberOfLines={1}>
+                {user?.name.split(' ')[0]}
+              </Text>
+            </View>
+            <Pressable onPress={() => nav.switchTab('rewards')} style={styles.creditPill}>
+              <Ionicons name="leaf" size={16} color={colors.white} />
+              <Text style={{ color: colors.white, fontWeight: '800', fontSize: 16 }}>{credits}</Text>
+            </Pressable>
+          </Row>
+          {user?.ward ? (
+            <Row gap={4} style={{ marginTop: 6 }}>
+              <Ionicons name="location-outline" size={14} color="rgba(255,255,255,0.85)" />
+              <Text style={styles.greet}>{user.ward}, Vellore</Text>
+            </Row>
+          ) : null}
+        </View>
+      }
     >
-      <Text style={font.small}>{greet},</Text>
-      <Text style={font.h1}>{user?.name.split(' ')[0]}</Text>
+      {/* big call to action */}
+      <Pressable
+        onPress={() => {
+          haptic.press();
+          nav.push('NewRequest');
+        }}
+        style={({ pressed }) => [styles.cta, pressed && { transform: [{ scale: 0.985 }] }]}
+      >
+        <View style={styles.ctaIcon}>
+          <Ionicons name="add" size={30} color={colors.white} />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={[font.h2, { fontSize: 19 }]}>{t('home.request')}</Text>
+          <Text style={font.small} numberOfLines={1}>
+            {WASTE_ORDER.map((w) => WASTE[w].short).join(' · ')}
+          </Text>
+        </View>
+        <Ionicons name="arrow-forward-circle" size={30} color={colors.accent} />
+      </Pressable>
 
-      <View style={styles.hero}>
-        <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-          <View>
-            <Text style={styles.heroLabel}>GREEN CREDITS</Text>
-            <Text style={styles.heroValue}>{stats.data?.green_credits ?? user?.green_credits ?? 0}</Text>
-          </View>
-          <Ionicons name="leaf" size={44} color="rgba(255,255,255,0.25)" />
-        </Row>
-        <Text style={styles.heroSub}>
-          {stats.data ? `${kg(stats.data.kg_diverted_from_landfill)} kept out of landfill · ${kg(stats.data.co2_saved_kg)} CO₂ saved` : ' '}
+      <View style={styles.impact}>
+        <Ionicons name="earth" size={22} color={colors.success} />
+        <Text style={{ flex: 1, color: colors.success, fontWeight: '600', fontSize: 13 }}>
+          {stats.data ? t('home.impact', { kg: kg(stats.data.kg_diverted_from_landfill), co2: kg(stats.data.co2_saved_kg) }) : t('common.loading')}
         </Text>
-        <Pressable style={styles.heroBtn} onPress={() => nav.push('NewRequest')}>
-          <Ionicons name="add-circle" size={22} color={colors.accentDark} />
-          <Text style={{ color: colors.accentDark, fontWeight: '800', fontSize: 16 }}>Request a pickup</Text>
-        </Pressable>
       </View>
 
-      <Row style={{ marginTop: space.lg }}>
-        <Stat label="Pickups done" value={stats.data?.collected ?? '–'} icon="checkmark-done" />
-        <Stat label="Waste handed" value={stats.data ? kg(stats.data.total_kg) : '–'} icon="scale" />
-        <Stat label="Open now" value={stats.data?.open_requests ?? '–'} icon="time" />
+      <Row style={{ marginTop: space.md }}>
+        <Stat label={t('home.done')} value={stats.data?.collected ?? '–'} icon="checkmark-done" />
+        <Stat label={t('home.handed')} value={stats.data ? kg(stats.data.total_kg) : '–'} icon="scale" tint={colors.info} />
+        <Stat label={t('home.open')} value={stats.data?.open_requests ?? '–'} icon="time" tint={colors.warning} />
       </Row>
 
-      <Section title="Active pickups" action={active.length ? <Text style={font.small}>{active.length}</Text> : undefined}>
+      <Section title={t('home.active')} action={active.length ? <Text style={[font.small, { fontWeight: '700' }]}>{active.length}</Text> : undefined}>
         {reqs.error && <ErrorBox message={reqs.error} onRetry={reqs.reload} />}
+        {reqs.loading && !reqs.data && <Skeleton height={86} count={2} />}
         {!reqs.loading && active.length === 0 && !reqs.error && (
-          <Empty
-            icon="trash-bin-outline"
-            title="No pickups in progress"
-            text="Segregate your waste and request a pickup. We group nearby requests so trucks travel less."
-            action={<Button title="Request pickup" icon="add" onPress={() => nav.push('NewRequest')} />}
-          />
+          <Empty icon="trash-bin-outline" title={t('home.none')} text={t('home.noneBody')} action={<Button title={t('home.request')} icon="add" onPress={() => nav.push('NewRequest')} />} />
         )}
         {active.map((p) => (
           <PickupCard key={p.id} p={p} />
@@ -84,18 +113,9 @@ export default function HomeScreen() {
 }
 
 const styles = StyleSheet.create({
-  hero: { marginTop: space.lg, backgroundColor: colors.accent, borderRadius: radius.lg + 4, padding: space.xl },
-  heroLabel: { color: 'rgba(255,255,255,0.75)', fontSize: 11, fontWeight: '700', letterSpacing: 1 },
-  heroValue: { color: '#fff', fontSize: 40, fontWeight: '800', marginTop: 2 },
-  heroSub: { color: 'rgba(255,255,255,0.85)', fontSize: 13, marginTop: 4 },
-  heroBtn: {
-    marginTop: space.lg,
-    backgroundColor: '#fff',
-    borderRadius: radius.md,
-    paddingVertical: 14,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-  },
+  greet: { color: 'rgba(255,255,255,0.85)', fontSize: 14, fontWeight: '600' },
+  creditPill: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 14, height: 40, borderRadius: 20 },
+  cta: { flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: colors.card, borderRadius: radius.xl, padding: space.lg, ...shadow },
+  ctaIcon: { width: 54, height: 54, borderRadius: 18, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  impact: { flexDirection: 'row', alignItems: 'center', gap: space.sm, marginTop: space.md, padding: space.md, borderRadius: radius.md, backgroundColor: colors.successSoft },
 });

@@ -3,6 +3,7 @@ import { Text, View } from 'react-native';
 
 import { inr, kg } from '../core/format';
 import { useApi } from '../core/hooks';
+import { t } from '../core/i18n';
 import { colors, font, radius, space } from '../core/theme';
 import { Card, Row, Screen, Section, Stat } from '../core/ui';
 import { wasteMeta } from '../core/waste';
@@ -21,22 +22,26 @@ export default function ImpactScreen() {
   const { data, refreshing, reload } = useApi<Stats>('/recycler/stats');
   const total = data ? Object.values(data.kg_by_material).reduce((a, b) => a + b, 0) || 1 : 1;
   return (
-    <Screen title="Your impact" refreshing={refreshing} onRefresh={reload}>
-      <Card style={{ backgroundColor: colors.accent, borderColor: colors.accent }}>
-        <Text style={{ color: 'rgba(255,255,255,0.8)', fontWeight: '700', fontSize: 12, letterSpacing: 1 }}>MATERIAL RECOVERED</Text>
-        <Text style={{ color: '#fff', fontSize: 38, fontWeight: '800' }}>{kg(data?.kg_recovered ?? 0)}</Text>
-        <Text style={{ color: 'rgba(255,255,255,0.85)' }}>
-          ≈ {kg((data?.kg_recovered ?? 0) * 1.9)} CO₂ avoided vs landfill
-        </Text>
-      </Card>
+    <Screen
+      refreshing={refreshing}
+      onRefresh={reload}
+      hero={
+        <View>
+          <Text style={[font.h1, { color: colors.white }]}>{t('imp.title')}</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.8)', fontWeight: '800', fontSize: 12, letterSpacing: 1, marginTop: space.lg }}>{t('imp.recovered').toUpperCase()}</Text>
+          <Text style={{ color: '#fff', fontSize: 40, fontWeight: '800', letterSpacing: -1 }}>{kg(data?.kg_recovered ?? 0)}</Text>
+          <Text style={{ color: 'rgba(255,255,255,0.88)' }}>{t('imp.co2', { kg: kg((data?.kg_recovered ?? 0) * 1.9) })}</Text>
+        </View>
+      }
+    >
       <Row>
-        <Stat label="Lots completed" value={data?.picked ?? '–'} icon="checkmark-done" />
-        <Stat label="To pick up" value={data?.claimed ?? '–'} icon="time" />
-        <Stat label="Purchased" value={inr(data?.value_inr ?? 0)} icon="cash" />
+        <Stat label={t('imp.lotsDone')} value={data?.picked ?? '–'} icon="checkmark-done" />
+        <Stat label={t('imp.toPick')} value={data?.claimed ?? '–'} icon="time" tint={colors.info} />
+        <Stat label={t('imp.purchased')} value={inr(data?.value_inr ?? 0)} icon="cash" tint={colors.success} />
       </Row>
-      <Section title="By material">
+      <Section title={t('imp.byMaterial')}>
         <Card>
-          {data && Object.keys(data.kg_by_material).length === 0 && <Text style={font.small}>No completed lots yet.</Text>}
+          {data && Object.keys(data.kg_by_material).length === 0 && <Text style={font.small}>{t('imp.noneDone')}</Text>}
           {data &&
             Object.entries(data.kg_by_material).map(([m, v]) => {
               const w = wasteMeta(m);
@@ -54,10 +59,10 @@ export default function ImpactScreen() {
             })}
         </Card>
       </Section>
-      <Section title="City market right now">
+      <Section title={t('imp.market')}>
         <Card>
           <Text style={font.body}>
-            {data?.available_lots ?? 0} lots · {kg(data?.available_kg ?? 0)} waiting to be claimed
+            {t('imp.marketBody', { n: data?.available_lots ?? 0, kg: kg(data?.available_kg ?? 0) })}
           </Text>
         </Card>
       </Section>

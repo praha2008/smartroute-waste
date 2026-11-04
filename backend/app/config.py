@@ -53,3 +53,33 @@ CREDITS_BASE = 10
 CREDITS_SEGREGATED = 5      # any type other than "general"
 CREDITS_FLEXIBLE = 5        # chose "low" urgency -> helps the optimizer
 CREDITS_ACCURATE = 5        # estimate within 25% of actual weight
+
+# ---------------------------------------------------------------------------
+# Release / demo mode
+#   demo    : demo accounts, "tap to fill" logins, full reset button (for development & reviews)
+#   release : no demo data; only the admin from ADMIN_EMAIL/ADMIN_PASSWORD + the fleet (vehicles, no drivers)
+# ---------------------------------------------------------------------------
+APP_MODE = os.getenv("APP_MODE", "demo").lower()
+ADMIN_NAME = os.getenv("ADMIN_NAME", "Municipal Admin")
+ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")
+ADMIN_PHONE = os.getenv("ADMIN_PHONE", "")
+
+# SMS one-time codes (phone verification) via Twilio Verify - https://www.twilio.com/verify
+TWILIO_ACCOUNT_SID = os.getenv("TWILIO_ACCOUNT_SID", "")
+TWILIO_AUTH_TOKEN = os.getenv("TWILIO_AUTH_TOKEN", "")
+TWILIO_VERIFY_SID = os.getenv("TWILIO_VERIFY_SID", "")
+# Email codes (forgot password) via Brevo's HTTP API (free 300 emails/day) or plain SMTP
+BREVO_API_KEY = os.getenv("BREVO_API_KEY", "")
+EMAIL_FROM = os.getenv("EMAIL_FROM", "")
+EMAIL_FROM_NAME = os.getenv("EMAIL_FROM_NAME", "SmartRoute Waste")
+SMTP_HOST = os.getenv("SMTP_HOST", "")
+SMTP_PORT = int(os.getenv("SMTP_PORT", "587"))
+SMTP_USER = os.getenv("SMTP_USER", "")
+SMTP_PASSWORD = os.getenv("SMTP_PASSWORD", "")
+
+SMS_CONFIGURED = bool(TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_VERIFY_SID)
+EMAIL_CONFIGURED = bool((BREVO_API_KEY or SMTP_HOST) and EMAIL_FROM)
+# Without a provider, codes are returned to the app and shown on screen ("demo code"),
+# so the full flow still works in a presentation. Set OTP_DEV_MODE=false to forbid that.
+OTP_DEV_MODE = os.getenv("OTP_DEV_MODE", "auto").lower()

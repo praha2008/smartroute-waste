@@ -12,9 +12,9 @@ export default function App() {
   return (
     <Root
       tabs={[
-        { key: 'route', title: 'Route', icon: 'navigate', component: RouteScreen },
-        { key: 'history', title: 'History', icon: 'time', component: HistoryScreen },
-        { key: 'account', title: 'Account', icon: 'person-circle', component: Account },
+        { key: 'route', title: 'tab.route', icon: 'navigate', component: RouteScreen },
+        { key: 'history', title: 'tab.history', icon: 'time', component: HistoryScreen },
+        { key: 'account', title: 'tab.account', icon: 'person-circle', component: Account },
       ]}
       screens={{ Stop: StopScreen }}
     />

@@ -12,6 +12,11 @@ export interface User {
   lng: number | null;
   green_credits: number;
   reliability: number;
+  phone_verified?: boolean | null;
+  approved?: boolean | null;
+  must_change_password?: boolean | null;
+  language?: string | null;
+  is_active?: boolean;
   created_at: string;
 }
 

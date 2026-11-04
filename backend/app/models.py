@@ -33,6 +33,11 @@ class User(Base):
     # 0..1 - how close this user's weight estimates are to the real weight
     reliability: Mapped[float] = mapped_column(Float, default=1.0)
     is_active: Mapped[bool] = mapped_column(default=True)
+    # release-mode account checks (nullable so an existing database can be upgraded in place)
+    phone_verified: Mapped[bool | None] = mapped_column(default=False)
+    approved: Mapped[bool | None] = mapped_column(default=True)          # recyclers wait for admin approval
+    must_change_password: Mapped[bool | None] = mapped_column(default=False)  # staff created with a temp password
+    language: Mapped[str | None] = mapped_column(String(5))
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     requests: Mapped[list["PickupRequest"]] = relationship(back_populates="user", foreign_keys="PickupRequest.user_id")
@@ -193,3 +198,17 @@ class AppMeta(Base):
 
     key: Mapped[str] = mapped_column(String(40), primary_key=True)
     value: Mapped[str] = mapped_column(String(200))
+
+
+class OtpCode(Base):
+    """One-time codes for phone verification (demo mode) and password reset (email)."""
+    __tablename__ = "otp_codes"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    purpose: Mapped[str] = mapped_column(String(20), index=True)   # verify_phone | reset_password
+    target: Mapped[str] = mapped_column(String(160), index=True)   # phone (E.164) or email
+    code_hash: Mapped[str] = mapped_column(String(64))
+    expires_at: Mapped[datetime] = mapped_column(DateTime)
+    attempts: Mapped[int] = mapped_column(Integer, default=0)
+    used: Mapped[bool] = mapped_column(default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

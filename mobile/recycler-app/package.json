@@ -1,6 +1,6 @@
 {
   "name": "smartroute-recycler",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "private": true,
   "main": "index.ts",
   "scripts": {
@@ -24,7 +24,12 @@
     "react-native": "0.88.1",
     "react-native-safe-area-context": "~5.11.1",
     "react-native-webview": "14.0.1",
-    "expo-build-properties": "~58.0.12"
+    "expo-build-properties": "~58.0.12",
+    "expo-haptics": "~58.0.7",
+    "expo-image-manipulator": "~58.0.16",
+    "expo-linear-gradient": "~58.0.3",
+    "expo-localization": "~58.0.5",
+    "expo-splash-screen": "~58.0.13"
   },
   "devDependencies": {
     "@types/react": "~19.3.0",

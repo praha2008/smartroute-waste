@@ -1,15 +1,18 @@
+import { ImageManipulator, SaveFormat } from 'expo-image-manipulator';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
 import { Alert } from 'react-native';
 
-export async function getCurrentLocation(): Promise<{ lat: number; lng: number } | null> {
+import { t } from './i18n';
+
+export async function getCurrentLocation(showAlert = true): Promise<{ lat: number; lng: number } | null> {
   const { status } = await Location.requestForegroundPermissionsAsync();
   if (status !== 'granted') {
-    Alert.alert('Location needed', 'Allow location access so we know where to send the truck. You can also tap the map to choose a spot.');
+    if (showAlert) Alert.alert(t('loc.title'), t('loc.permission'));
     return null;
   }
   try {
-    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+    const pos = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
     return { lat: pos.coords.latitude, lng: pos.coords.longitude };
   } catch {
     const last = await Location.getLastKnownPositionAsync();
@@ -17,45 +20,50 @@ export async function getCurrentLocation(): Promise<{ lat: number; lng: number }
   }
 }
 
-export async function reverseGeocode(lat: number, lng: number): Promise<string | null> {
-  try {
-    const [p] = await Location.reverseGeocodeAsync({ latitude: lat, longitude: lng });
-    if (!p) return null;
-    return [p.name, p.street, p.district, p.city].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i).join(', ');
-  } catch {
-    return null;
-  }
-}
-
 export interface Photo {
   uri: string; // local file, for preview
   base64: string; // sent to the server as JSON
+  width: number;
+  height: number;
 }
 
-/** Ask camera or gallery and return the picked image (uri + base64). */
+const MAX_SIDE = 1280; // long side in pixels: sharp on any phone, ~150-350 KB as JPEG
+
+/** Shrink a picked image so the long side is at most MAX_SIDE, keeping its aspect ratio. */
+async function shrink(a: ImagePicker.ImagePickerAsset): Promise<Photo> {
+  const landscape = (a.width ?? 0) >= (a.height ?? 0);
+  const big = Math.max(a.width ?? 0, a.height ?? 0) > MAX_SIDE;
+  const ctx = ImageManipulator.manipulate(a.uri);
+  if (big) ctx.resize(landscape ? { width: MAX_SIDE } : { height: MAX_SIDE });
+  const img = await ctx.renderAsync();
+  const out = await img.saveAsync({ compress: 0.72, format: SaveFormat.JPEG, base64: true });
+  if (!out.base64) throw new Error('no data');
+  return { uri: out.uri, base64: out.base64, width: out.width, height: out.height };
+}
+
+/** Ask camera or gallery and return the picked image — any aspect ratio, no forced crop. */
 export function pickPhoto(): Promise<Photo | null> {
   return new Promise((resolve) => {
     const open = async (camera: boolean) => {
       const perm = camera ? await ImagePicker.requestCameraPermissionsAsync() : await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (!perm.granted) {
-        Alert.alert('Permission needed', camera ? 'Camera access is required to take a photo.' : 'Gallery access is required.');
+        Alert.alert(t('photo.add'), camera ? t('photo.permCamera') : t('photo.permGallery'));
         return resolve(null);
       }
-      // quality 0.4 keeps photos ~100-300 KB so they upload fast on mobile data
-      const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 0.4, allowsEditing: true, aspect: [4, 3], base64: true };
+      const opts: ImagePicker.ImagePickerOptions = { mediaTypes: ['images'], quality: 1, allowsEditing: false, exif: false };
       const res = camera ? await ImagePicker.launchCameraAsync(opts) : await ImagePicker.launchImageLibraryAsync(opts);
       if (res.canceled || !res.assets?.[0]) return resolve(null);
-      const a = res.assets[0];
-      if (!a.base64) {
-        Alert.alert('Photo error', 'Could not read the photo. Please try again.');
-        return resolve(null);
+      try {
+        resolve(await shrink(res.assets[0]));
+      } catch {
+        Alert.alert(t('photo.add'), t('photo.error'));
+        resolve(null);
       }
-      resolve({ uri: a.uri, base64: a.base64 });
     };
-    Alert.alert('Add photo', undefined, [
-      { text: 'Take photo', onPress: () => open(true) },
-      { text: 'Choose from gallery', onPress: () => open(false) },
-      { text: 'Cancel', style: 'cancel', onPress: () => resolve(null) },
+    Alert.alert(t('photo.add'), undefined, [
+      { text: t('photo.take'), onPress: () => open(true) },
+      { text: t('photo.gallery'), onPress: () => open(false) },
+      { text: t('common.cancel'), style: 'cancel', onPress: () => resolve(null) },
     ]);
   });
 }

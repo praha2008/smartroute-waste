@@ -1,15 +1,18 @@
 import { Ionicons } from '@expo/vector-icons';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Alert, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { api } from '../core/api';
 import { useAuth } from '../core/auth';
-import { getCurrentLocation, Photo, pickPhoto, reverseGeocode } from '../core/device';
+import { getCurrentLocation, Photo as PickedPhoto, pickPhoto } from '../core/device';
+import { haptic } from '../core/haptics';
+import { t } from '../core/i18n';
+import LocationPicker from '../core/LocationPicker';
 import MapView from '../core/MapView';
 import { useNav } from '../core/nav';
-import { colors, font, radius, space } from '../core/theme';
+import { colors, font, radius, shadowSoft, space } from '../core/theme';
 import type { Pickup } from '../core/types';
-import { Button, Chip, ErrorBox, Input, Row, Screen, Section } from '../core/ui';
+import { Banner, Button, Chip, ErrorBox, Input, Photo, Row, Screen, Section } from '../core/ui';
 import { URGENCY, URGENCY_ORDER, Urgency, WASTE, WASTE_ORDER, WasteType } from '../core/waste';
 
 // must match backend config.py
@@ -25,9 +28,9 @@ interface AiResult {
   types: Record<string, number>;
 }
 
-function slaText(t: WasteType, u: Urgency) {
-  const h = BASE_SLA_H[t] * SLA_FACTOR[u];
-  return h < 24 ? `within ${h % 1 ? h.toFixed(1) : h} hours` : `within ${Math.round(h / 24)} day${h >= 48 ? 's' : ''}`;
+function slaText(type: WasteType, u: Urgency) {
+  const h = BASE_SLA_H[type] * SLA_FACTOR[u];
+  return h < 24 ? t('new.withinH', { n: h % 1 ? h.toFixed(1) : h }) : t('new.withinD', { n: Math.round(h / 24) });
 }
 
 export default function NewRequestScreen() {
@@ -37,11 +40,12 @@ export default function NewRequestScreen() {
   const [qty, setQty] = useState('');
   const [urgency, setUrgency] = useState<Urgency>('medium');
   const [loc, setLoc] = useState<{ lat: number; lng: number } | null>(user?.lat && user?.lng ? { lat: user.lat, lng: user.lng } : null);
+  const [placeTitle, setPlaceTitle] = useState<string | null>(user?.lat ? t('reg.home') : null);
   const [address, setAddress] = useState(user?.address ?? '');
   const [notes, setNotes] = useState('');
-  const [photo, setPhoto] = useState<Photo | null>(null);
+  const [photo, setPhoto] = useState<PickedPhoto | null>(null);
   const [busy, setBusy] = useState(false);
-  const [locating, setLocating] = useState(false);
+  const [picker, setPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ai, setAi] = useState<AiResult | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
@@ -57,6 +61,7 @@ export default function NewRequestScreen() {
       const res = await api.post<AiResult>('/ai/classify', { data: p.base64 });
       setAi(res);
       if (!type) setType(res.waste_type as WasteType);
+      haptic.success();
     } catch {
       /* model not available - the citizen just picks the type */
     } finally {
@@ -64,19 +69,15 @@ export default function NewRequestScreen() {
     }
   };
 
-  const locate = async () => {
-    setLocating(true);
-    const p = await getCurrentLocation();
-    if (p) {
-      setLoc(p);
-      const a = await reverseGeocode(p.lat, p.lng);
-      if (a && !address) setAddress(a);
-    }
-    setLocating(false);
-  };
-
+  // no saved home location: start from the phone's GPS
   useEffect(() => {
-    if (!loc) locate();
+    if (loc) return;
+    getCurrentLocation(false).then((p) => {
+      if (p) {
+        setLoc(p);
+        setPlaceTitle(t('loc.current'));
+      }
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -84,10 +85,10 @@ export default function NewRequestScreen() {
 
   const submit = async () => {
     setError(null);
-    const est = parseFloat(qty);
-    if (!type) return setError('Choose the type of waste');
-    if (!est || est <= 0) return setError('Enter approximate quantity in kg');
-    if (!loc) return setError('Set the pickup location on the map');
+    const est = parseFloat(qty.replace(',', '.'));
+    if (!type) return setError(t('new.errType'));
+    if (!est || est <= 0) return setError(t('new.errKg'));
+    if (!loc) return setError(t('new.errLoc'));
     setBusy(true);
     try {
       const created = await api.post<Pickup>('/requests', { waste_type: type, urgency, est_kg: est, lat: loc.lat, lng: loc.lng, address, notes: notes || null });
@@ -95,186 +96,209 @@ export default function NewRequestScreen() {
         try {
           await api.uploadPhoto(`/requests/${created.id}/photo64`, photo.base64);
         } catch (e: any) {
-          Alert.alert('Request created', `But the photo could not be uploaded: ${e.message}`);
+          Alert.alert(t('new.title'), t('new.photoFail', { msg: e.message }));
         }
       }
+      haptic.success();
       nav.replace('RequestDetail', { id: created.id, fresh: true });
     } catch (e: any) {
+      haptic.error();
       setError(e.message);
     } finally {
       setBusy(false);
     }
   };
 
+  const aiLabel = ai ? WASTE[ai.waste_type as WasteType]?.label ?? ai.waste_type : '';
+
   return (
-    <Screen
-      title="Request a pickup"
-      back
-      footer={<Button title="Submit request" icon="send" onPress={submit} loading={busy} disabled={!type} />}
-    >
-      <Pressable onPress={takePhoto} style={styles.aiBox}>
-        {photo ? (
-          <Image source={{ uri: photo.uri }} style={styles.aiThumb} />
-        ) : (
-          <View style={[styles.aiThumb, { alignItems: 'center', justifyContent: 'center', backgroundColor: colors.accentSoft }]}>
-            <Ionicons name="camera" size={26} color={colors.accentDark} />
-          </View>
-        )}
-        <View style={{ flex: 1 }}>
-          {aiBusy ? (
-            <Text style={[font.body, { fontWeight: '700' }]}>Checking the photo…</Text>
-          ) : ai ? (
-            <>
-              <Text style={[font.small, { fontWeight: '700', color: colors.accentDark }]}>AI SUGGESTION</Text>
-              <Text style={[font.body, { fontWeight: '700' }]}>
-                {WASTE[ai.waste_type as WasteType]?.label ?? ai.waste_type} · {Math.round(ai.confidence * 100)}%
+    <Screen title={t('new.title')} back footer={<Button title={t('new.submit')} icon="send" onPress={submit} loading={busy} disabled={!type} />}>
+      {/* photo + AI */}
+      {photo ? (
+        <View style={styles.photoCard}>
+          <Photo uri={photo.uri} maxHeight={360} onPress={takePhoto} style={{ marginBottom: 0, borderRadius: 0 }} />
+          <View style={styles.aiStrip}>
+            {aiBusy ? (
+              <Row>
+                <ActivityIndicator color={colors.accent} />
+                <Text style={[font.body, { fontWeight: '700' }]}>{t('new.checking')}</Text>
+              </Row>
+            ) : ai ? (
+              <Row gap={space.md}>
+                <View style={styles.aiBadge}>
+                  <Ionicons name="sparkles" size={18} color={colors.white} />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={[font.tiny, { color: colors.accentDark }]}>{t('new.aiSuggestion')}</Text>
+                  <Text style={[font.body, { fontWeight: '800' }]}>
+                    {aiLabel} · {Math.round(ai.confidence * 100)}%
+                  </Text>
+                  <Text style={font.small}>{t('new.looksLike', { item: ai.item })}</Text>
+                </View>
+              </Row>
+            ) : (
+              <Text style={font.small}>
+                {t('new.photoAdded')} · {t('new.retake')}
               </Text>
-              <Text style={font.small}>Looks like: {ai.item}</Text>
-            </>
-          ) : (
-            <>
-              <Text style={[font.body, { fontWeight: '700' }]}>{photo ? 'Photo added' : 'Snap a photo first'}</Text>
-              <Text style={font.small}>{photo ? 'Tap to retake' : 'Our AI suggests the waste type from the photo'}</Text>
-            </>
-          )}
+            )}
+          </View>
         </View>
-      </Pressable>
+      ) : (
+        <Pressable onPress={takePhoto} style={({ pressed }) => [styles.snap, pressed && { opacity: 0.85 }]}>
+          <View style={styles.snapIcon}>
+            <Ionicons name="camera" size={30} color={colors.white} />
+          </View>
+          <Text style={[font.h3, { marginTop: space.md }]}>{t('new.snap')}</Text>
+          <Row gap={4} style={{ marginTop: 4 }}>
+            <Ionicons name="sparkles" size={13} color={colors.accentDark} />
+            <Text style={[font.small, { color: colors.accentDark }]}>{t('new.snapHint')}</Text>
+          </Row>
+        </Pressable>
+      )}
       {ai && type && ai.waste_type !== type && ai.confidence >= 0.7 && (
-        <Pressable onPress={() => setType(ai.waste_type as WasteType)} style={styles.aiWarn}>
-          <Ionicons name="alert-circle" size={18} color={colors.warning} />
-          <Text style={{ flex: 1, color: colors.warning, fontWeight: '600' }}>
-            The photo looks like {WASTE[ai.waste_type as WasteType]?.label}. Tap to switch, or keep your choice.
-          </Text>
+        <Pressable onPress={() => setType(ai.waste_type as WasteType)} style={{ marginBottom: space.md }}>
+          <Banner tone="warning" text={t('new.aiWarn', { type: aiLabel })} />
         </Pressable>
       )}
 
-      <Text style={font.tiny}>1 · WHAT KIND OF WASTE?</Text>
-      <View style={styles.grid}>
-        {WASTE_ORDER.map((t) => {
-          const w = WASTE[t];
-          const active = type === t;
-          return (
-            <Pressable key={t} onPress={() => setType(t)} style={[styles.typeCard, active && { borderColor: w.color, backgroundColor: w.soft }]}>
-              <Row style={{ justifyContent: 'space-between' }}>
-                <Ionicons name={w.icon as any} size={24} color={w.color} />
-                {active && <Ionicons name="checkmark-circle" size={20} color={w.color} />}
-              </Row>
-              <Text style={[font.h3, { marginTop: 8, fontSize: 15 }]}>{w.label}</Text>
-              <Text style={[font.small, { fontSize: 12, marginTop: 2 }]} numberOfLines={2}>
-                {w.hint}
-              </Text>
-            </Pressable>
-          );
-        })}
-      </View>
-      {type === 'general' && (
-        <Text style={[font.small, { color: colors.warning, marginTop: -4 }]}>Tip: segregated waste earns +5 extra credits and is easier to recycle.</Text>
-      )}
-      {type === 'hazardous' && (
-        <Text style={[font.small, { color: colors.danger, marginTop: -4 }]}>Hazardous waste gets top priority and a dedicated vehicle. Keep it sealed.</Text>
-      )}
+      <Section title={t('new.step1')}>
+        <View style={styles.grid}>
+          {WASTE_ORDER.map((wt) => {
+            const w = WASTE[wt];
+            const active = type === wt;
+            return (
+              <Pressable
+                key={wt}
+                onPress={() => {
+                  haptic.tap();
+                  setType(wt);
+                }}
+                style={[styles.typeCard, active && { borderColor: w.color, backgroundColor: w.soft }]}
+              >
+                <Row style={{ justifyContent: 'space-between' }}>
+                  <View style={[styles.typeIcon, { backgroundColor: active ? w.color : w.soft }]}>
+                    <Ionicons name={w.icon as any} size={20} color={active ? colors.white : w.color} />
+                  </View>
+                  {active && <Ionicons name="checkmark-circle" size={22} color={w.color} />}
+                </Row>
+                <Text style={[font.h3, { marginTop: 10, fontSize: 15 }]} numberOfLines={1}>
+                  {w.label}
+                </Text>
+                <Text style={[font.small, { fontSize: 12, marginTop: 2 }]} numberOfLines={2}>
+                  {w.hint}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+        {type === 'general' && <Banner tone="warning" icon="bulb-outline" text={t('new.tipMixed')} />}
+        {type === 'hazardous' && <Banner tone="danger" text={t('new.tipHaz')} />}
+      </Section>
 
-      <Section title="2 · How much (approx.)?">
+      <Section title={t('new.step2')}>
         <Row style={{ flexWrap: 'wrap', marginBottom: space.md }} gap={6}>
           {QUICK_KG.map((k) => (
             <Chip key={k} label={`${k} kg`} active={qty === String(k)} onPress={() => setQty(String(k))} />
           ))}
         </Row>
-        <Input value={qty} onChangeText={setQty} keyboardType="decimal-pad" placeholder="Or type kg, e.g. 3.5" />
-        <Text style={[font.small, { marginTop: -6 }]}>A normal kitchen bin is about 2–3 kg. Accurate estimates earn bonus credits.</Text>
+        <Input icon="scale-outline" value={qty} onChangeText={setQty} keyboardType="decimal-pad" placeholder={t('new.typeKg')} hint={t('new.kgHint')} />
       </Section>
 
-      <Section title="3 · How urgent?">
+      <Section title={t('new.step3')}>
         <View style={{ gap: space.sm }}>
           {URGENCY_ORDER.map((u) => {
             const m = URGENCY[u];
             const active = urgency === u;
             return (
-              <Pressable key={u} onPress={() => setUrgency(u)} style={[styles.urgRow, active && { borderColor: m.color, backgroundColor: m.soft }]}>
-                <View style={[styles.radio, { borderColor: active ? m.color : colors.border }]}>{active && <View style={[styles.radioDot, { backgroundColor: m.color }]} />}</View>
+              <Pressable
+                key={u}
+                onPress={() => {
+                  haptic.tap();
+                  setUrgency(u);
+                }}
+                style={[styles.urgRow, active && { borderColor: m.color, backgroundColor: m.soft }]}
+              >
+                <Ionicons name={m.icon as any} size={22} color={m.color} />
                 <View style={{ flex: 1 }}>
                   <Text style={[font.body, { fontWeight: '700' }]}>{m.label}</Text>
-                  <Text style={font.small}>{m.hint}</Text>
+                  <Text style={[font.small, { fontSize: 12 }]}>{m.hint}</Text>
                 </View>
-                {type && <Text style={[font.small, { fontWeight: '600', color: m.color }]}>{slaText(type, u)}</Text>}
+                {type && <Text style={[font.small, { fontWeight: '700', color: m.color, fontSize: 12 }]}>{slaText(type, u)}</Text>}
+                <View style={[styles.radio, { borderColor: active ? m.color : colors.border }]}>{active && <View style={[styles.radioDot, { backgroundColor: m.color }]} />}</View>
               </Pressable>
             );
           })}
         </View>
       </Section>
 
-      <Section
-        title="4 · Pickup location"
-        action={<Button title={locating ? 'Locating…' : 'Use my location'} icon="locate" small variant="ghost" onPress={locate} disabled={locating} />}
-      >
-        <MapView center={loc ? [loc.lat, loc.lng] : [12.9165, 79.1325]} zoom={16} markers={markers} fit={false} onPress={(lat, lng) => setLoc({ lat, lng })} height={220} />
-        <Text style={[font.small, { marginVertical: space.sm }]}>Tap the map to move the pin to your gate.</Text>
-        <Input value={address} onChangeText={setAddress} placeholder="Address / landmark" />
+      <Section title={t('new.step4')}>
+        <Pressable onPress={() => setPicker(true)} style={styles.locCard}>
+          {loc ? (
+            <View pointerEvents="none">
+              <MapView center={[loc.lat, loc.lng]} zoom={16} markers={markers} fit={false} height={140} rounded={false} interactive={false} />
+            </View>
+          ) : null}
+          <Row style={{ padding: space.md }} gap={space.md}>
+            <View style={styles.locIcon}>
+              <Ionicons name="location" size={20} color={colors.accent} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={[font.body, { fontWeight: '700' }]} numberOfLines={1}>
+                {loc ? placeTitle ?? t('loc.title') : t('new.setLocation')}
+              </Text>
+              {loc && address ? (
+                <Text style={[font.small, { fontSize: 12 }]} numberOfLines={2}>
+                  {address}
+                </Text>
+              ) : null}
+            </View>
+            <Text style={{ color: colors.accentDark, fontWeight: '800' }}>{t('common.change')}</Text>
+          </Row>
+        </Pressable>
+        <Input icon="home-outline" value={address} onChangeText={setAddress} placeholder={t('reg.address')} />
       </Section>
 
-      <Section title="5 · Notes (optional)">
-        <Input value={notes} onChangeText={setNotes} placeholder="e.g. Bags kept near the gate" multiline />
+      <Section title={`${t('new.step5')} (${t('common.optional')})`}>
+        <Input icon="chatbox-ellipses-outline" value={notes} onChangeText={setNotes} placeholder={t('new.notesPh')} multiline />
       </Section>
 
       {error && <ErrorBox message={error} />}
+
+      <LocationPicker
+        visible={picker}
+        initial={loc}
+        onClose={() => setPicker(false)}
+        onConfirm={(p) => {
+          setPicker(false);
+          setLoc({ lat: p.lat, lng: p.lng });
+          setPlaceTitle(p.title ?? null);
+          setAddress(p.address);
+        }}
+      />
     </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginTop: space.sm, marginBottom: space.md },
-  typeCard: {
-    width: '48.5%',
+  snap: {
+    alignItems: 'center',
+    paddingVertical: space.xl,
     backgroundColor: colors.card,
-    borderRadius: radius.md,
-    padding: space.md,
+    borderRadius: radius.xl,
     borderWidth: 2,
-    borderColor: colors.border,
-  },
-  urgRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    padding: space.md,
-    borderWidth: 2,
-    borderColor: colors.border,
-  },
-  radio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
-  radioDot: { width: 10, height: 10, borderRadius: 5 },
-  aiBox: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.md,
-    backgroundColor: colors.card,
-    borderRadius: radius.md,
-    padding: space.md,
-    borderWidth: 1.5,
-    borderColor: colors.accent,
+    borderColor: colors.accent + '55',
     borderStyle: 'dashed',
-    marginBottom: space.md,
   },
-  aiThumb: { width: 64, height: 64, borderRadius: radius.sm },
-  aiWarn: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.sm,
-    backgroundColor: colors.warningSoft,
-    borderRadius: radius.md,
-    padding: space.md,
-    marginBottom: space.md,
-  },
-  photoBox: {
-    height: 150,
-    borderRadius: radius.md,
-    borderWidth: 1.5,
-    borderStyle: 'dashed',
-    borderColor: colors.border,
-    backgroundColor: colors.card,
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'hidden',
-    marginBottom: space.md,
-  },
+  snapIcon: { width: 64, height: 64, borderRadius: 22, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  photoCard: { backgroundColor: colors.card, borderRadius: radius.xl, overflow: 'hidden', ...shadowSoft, marginBottom: space.md },
+  aiStrip: { padding: space.md },
+  aiBadge: { width: 40, height: 40, borderRadius: 14, backgroundColor: colors.accent, alignItems: 'center', justifyContent: 'center' },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm, marginBottom: space.md },
+  typeCard: { width: '48.5%', backgroundColor: colors.card, borderRadius: radius.lg, padding: space.md, borderWidth: 2, borderColor: 'transparent', ...shadowSoft },
+  typeIcon: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  urgRow: { flexDirection: 'row', alignItems: 'center', gap: space.md, backgroundColor: colors.card, borderRadius: radius.md, padding: space.md, borderWidth: 2, borderColor: 'transparent', ...shadowSoft },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  radioDot: { width: 11, height: 11, borderRadius: 6 },
+  locCard: { backgroundColor: colors.card, borderRadius: radius.lg, overflow: 'hidden', marginBottom: space.md, ...shadowSoft },
+  locIcon: { width: 40, height: 40, borderRadius: 13, backgroundColor: colors.accentSoft, alignItems: 'center', justifyContent: 'center' },
 });

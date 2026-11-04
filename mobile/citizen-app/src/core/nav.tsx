@@ -7,14 +7,16 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useR
 import { Animated, BackHandler, Dimensions, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { colors } from './theme';
+import { t as tr } from './i18n';
+import { colors, shadow } from './theme';
+import { haptic } from './haptics';
 
 export type Params = Record<string, any>;
 export type ScreenComponent = React.ComponentType<{ params: Params }>;
 
 export interface TabDef {
   key: string;
-  title: string;
+  title: string; // translation key (or plain text)
   icon: keyof typeof Ionicons.glyphMap;
   component: ScreenComponent;
 }
@@ -131,11 +133,25 @@ export function Navigator({ tabs, screens }: { tabs: TabDef[]; screens: Record<s
           {tabs.map((t) => {
             const active = t.key === tab;
             return (
-              <Pressable key={t.key} style={styles.tabItem} onPress={() => switchTab(t.key)} hitSlop={6}>
+              <Pressable
+                key={t.key}
+                style={styles.tabItem}
+                onPress={() => {
+                  if (!active) haptic.tap();
+                  switchTab(t.key);
+                }}
+                hitSlop={6}
+              >
                 <View style={[styles.tabPill, active && { backgroundColor: colors.accentSoft }]}>
-                  <Ionicons name={t.icon} size={22} color={active ? colors.accentDark : colors.textFaint} />
+                  <Ionicons
+                    name={(active ? t.icon : `${String(t.icon).replace(/-outline$/, '')}-outline`) as any}
+                    size={22}
+                    color={active ? colors.accentDark : colors.textFaint}
+                  />
                 </View>
-                <Text style={[styles.tabLabel, { color: active ? colors.accentDark : colors.textFaint }]}>{t.title}</Text>
+                <Text style={[styles.tabLabel, { color: active ? colors.accentDark : colors.textFaint, fontWeight: active ? '800' : '600' }]} numberOfLines={1}>
+                  {tr(t.title)}
+                </Text>
               </Pressable>
             );
           })}
@@ -155,11 +171,14 @@ const styles = StyleSheet.create({
   tabBar: {
     flexDirection: 'row',
     backgroundColor: colors.card,
-    borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: colors.border,
-    paddingTop: 6,
+    paddingTop: 8,
+    borderTopLeftRadius: 22,
+    borderTopRightRadius: 22,
+    ...shadow,
+    shadowOffset: { width: 0, height: -3 },
+    elevation: 12,
   },
-  tabItem: { flex: 1, alignItems: 'center', gap: 2 },
-  tabPill: { paddingHorizontal: 18, paddingVertical: 4, borderRadius: 999 },
-  tabLabel: { fontSize: 11, fontWeight: '600' },
+  tabItem: { flex: 1, alignItems: 'center', gap: 3 },
+  tabPill: { paddingHorizontal: 20, paddingVertical: 5, borderRadius: 999 },
+  tabLabel: { fontSize: 11 },
 });

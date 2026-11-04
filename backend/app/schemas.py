@@ -20,7 +20,8 @@ class RegisterIn(BaseModel):
     name: str = Field(min_length=2, max_length=120)
     email: str = Field(min_length=5, max_length=160, pattern=r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
     password: str = Field(min_length=6, max_length=128)
-    phone: str | None = None
+    phone: str = Field(min_length=10, max_length=16)
+    language: str | None = None
     role: Literal["citizen", "recycler"] = "citizen"
     account_type: Literal["household", "business"] | None = "household"
     organization: str | None = None
@@ -31,8 +32,40 @@ class RegisterIn(BaseModel):
 
 
 class LoginIn(BaseModel):
-    email: str
+    email: str  # email OR phone number
     password: str
+
+
+class PhoneIn(BaseModel):
+    phone: str
+
+
+class VerifyPhoneIn(BaseModel):
+    phone: str
+    code: str = Field(min_length=4, max_length=8)
+
+
+class ForgotIn(BaseModel):
+    email: str
+
+
+class ResetIn(BaseModel):
+    email: str
+    code: str = Field(min_length=4, max_length=8)
+    new_password: str = Field(min_length=6, max_length=128)
+
+
+class ChangePasswordIn(BaseModel):
+    old_password: str
+    new_password: str = Field(min_length=6, max_length=128)
+
+
+class CodeSentOut(BaseModel):
+    ok: bool = True
+    channel: str
+    target: str
+    demo: bool = False
+    dev_code: str | None = None
 
 
 class UserOut(ORM):
@@ -49,6 +82,11 @@ class UserOut(ORM):
     lng: float | None
     green_credits: int
     reliability: float
+    phone_verified: bool | None = None
+    approved: bool | None = None
+    must_change_password: bool | None = None
+    language: str | None = None
+    is_active: bool = True
     created_at: UTC
 
 
@@ -59,7 +97,7 @@ class TokenOut(BaseModel):
 
 class ProfileUpdate(BaseModel):
     name: str | None = None
-    phone: str | None = None
+    language: str | None = None
     address: str | None = None
     ward: str | None = None
     organization: str | None = None

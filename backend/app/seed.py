@@ -92,9 +92,25 @@ def new_request(user: User, wt: str, urg: str, kg: float, created: datetime, lat
     return r
 
 
+def ensure_admin(db) -> User | None:
+    """Create the real admin from ADMIN_EMAIL / ADMIN_PASSWORD (Render environment) if it doesn't exist."""
+    from .config import ADMIN_EMAIL, ADMIN_NAME, ADMIN_PASSWORD, ADMIN_PHONE
+
+    if not (ADMIN_EMAIL and ADMIN_PASSWORD):
+        return None
+    u = db.query(User).filter(User.email == ADMIN_EMAIL.lower()).first()
+    if u is None:
+        u = User(name=ADMIN_NAME, email=ADMIN_EMAIL.lower(), role="admin", password_hash=hash_password(ADMIN_PASSWORD),
+                 phone=ADMIN_PHONE or None, phone_verified=True, approved=True)
+        db.add(u)
+        db.commit()
+    return u
+
+
 def seed(reset: bool, mode: str = "clean") -> None:
-    """mode="clean": accounts + fleet only, NO requests/history (for live demos).
-    mode="full":  also 30 days of history and 38 scenario requests."""
+    """mode="clean":   demo accounts + fleet, NO requests/history (for live demos).
+    mode="full":    also 30 days of history and 38 scenario requests.
+    mode="release": real deployment - only the admin from the environment + the fleet (no drivers)."""
     if reset:
         Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
@@ -107,15 +123,32 @@ def seed(reset: bool, mode: str = "clean") -> None:
 
     # new data epoch: tokens issued before this reset become invalid (see security.py)
     db.add(AppMeta(key="data_epoch", value=f"{rnd.random():.12f}-{utcnow().timestamp():.0f}"))
+    if mode == "release":
+        if ensure_admin(db) is None:
+            db.add(User(name="Municipal Admin", email="admin@smartroute.in", role="admin", phone_verified=True,
+                        password_hash=hash_password("admin123")))  # fallback; set ADMIN_EMAIL/ADMIN_PASSWORD on Render
+        dlat, dlng = DEFAULT_DEPOT
+        for reg, name, cap, types in [
+            ("TN23 AB 1101", "Compactor 1", 2000, ["organic", "general"]),
+            ("TN23 AB 1102", "Compactor 2", 2000, ["organic", "general", "recyclable"]),
+            ("TN23 AB 2201", "Recycling Truck", 1200, ["recyclable", "e_waste", "general"]),
+            ("TN23 AB 3301", "Hazmat Van", 400, ["hazardous", "e_waste"]),
+        ]:
+            db.add(Vehicle(reg_no=reg, name=name, capacity_kg=cap, allowed_types=",".join(types), depot_lat=dlat,
+                           depot_lng=dlng, cur_lat=dlat, cur_lng=dlng, status="idle"))
+        db.commit()
+        print("Seeded RELEASE start: admin + 4 vehicles (add drivers from the dashboard)")
+        db.close()
+        return
     pw = {k: hash_password(f"{k}123") for k in ("admin", "driver", "citizen", "recycler")}
     now = utcnow()
     today_ist = (now + IST).replace(hour=0, minute=0, second=0, microsecond=0)
 
     # ------------------------------------------------------------------ staff & fleet
-    db.add(User(name="Municipal Admin", email="admin@smartroute.in", role="admin", password_hash=pw["admin"], phone="9000000001"))
+    db.add(User(name="Municipal Admin", email="admin@smartroute.in", role="admin", password_hash=pw["admin"], phone="+919000000001", phone_verified=True))
     drivers = []
     for i, nm in enumerate(["Ravi Shankar", "Muthu Kumar", "Senthil Nathan", "Babu Raj", "Selva Ganesh"], start=1):
-        d = User(name=nm, email=f"driver{i}@smartroute.in", role="collector", password_hash=pw["driver"], phone=f"90000001{i:02d}")
+        d = User(name=nm, email=f"driver{i}@smartroute.in", role="collector", password_hash=pw["driver"], phone=f"+9190000001{i:02d}", phone_verified=True)
         drivers.append(d)
         db.add(d)
     dlat, dlng = DEFAULT_DEPOT
@@ -139,7 +172,7 @@ def seed(reset: bool, mode: str = "clean") -> None:
                                          ("Arjun", "E-Cycle Hub (e-waste)", "Sathuvachari")], start=1):
         lat, lng = near(rnd, *WARDS[ward][:3])
         r = User(name=nm, email="recycler@smartroute.in" if i == 1 else f"recycler{i}@smartroute.in", role="recycler",
-                 organization=org, password_hash=pw["recycler"], phone=f"90000002{i:02d}", ward=ward, lat=lat, lng=lng,
+                 organization=org, password_hash=pw["recycler"], phone=f"+9190000002{i:02d}", phone_verified=True, ward=ward, lat=lat, lng=lng,
                  address=f"{rnd.randint(1, 80)}, {ward}, Vellore")
         recyclers.append(r)
         db.add(r)
@@ -156,13 +189,13 @@ def seed(reset: bool, mode: str = "clean") -> None:
         else:
             name, email = f"{rnd.choice(FIRST)} {rnd.choice(LAST)}", f"user{i}@smartroute.in"
         c = User(name=name, email=email, role="citizen", account_type="household", password_hash=pw["citizen"],
-                 phone=f"98{i:08d}", ward=ward, lat=lat, lng=lng, address=f"{rnd.randint(1, 140)}, {ward}, Vellore")
+                 phone=f"+9198{i:08d}", phone_verified=True, ward=ward, lat=lat, lng=lng, address=f"{rnd.randint(1, 140)}, {ward}, Vellore")
         citizens.append(c)
     for j, (bname, ward, _) in enumerate(BUSINESSES):
         lat, lng = near(rnd, *WARDS[ward][:3])
         email = "business@smartroute.in" if j == 0 else f"biz{j}@smartroute.in"
         c = User(name=bname, email=email, role="citizen", account_type="business", organization=bname,
-                 password_hash=pw["citizen"], phone=f"97{j:08d}", ward=ward, lat=lat, lng=lng,
+                 password_hash=pw["citizen"], phone=f"+9197{j:08d}", phone_verified=True, ward=ward, lat=lat, lng=lng,
                  address=f"{rnd.randint(1, 60)}, Main Road, {ward}, Vellore")
         citizens.append(c)
     if mode == "clean":

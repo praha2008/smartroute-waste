@@ -1,6 +1,8 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Constants from 'expo-constants';
 
+import { t } from './i18n';
+
 const KEY_URL = 'smartroute.serverUrl';
 const KEY_TOKEN = 'smartroute.token';
 
@@ -10,9 +12,12 @@ let onUnauthorized: (() => void) | null = null;
 
 export class ApiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  /** structured error body (e.g. {code: 'PHONE_NOT_VERIFIED', phone, target, dev_code}) */
+  data: any;
+  constructor(status: number, message: string, data?: any) {
     super(message);
     this.status = status;
+    this.data = data;
   }
 }
 
@@ -72,13 +77,17 @@ async function parse(res: Response) {
   }
   if (!res.ok) {
     let msg = `Request failed (${res.status})`;
+    let extra: any;
     if (data?.detail) {
-      msg = Array.isArray(data.detail)
-        ? data.detail.map((d: any) => `${(d.loc || []).slice(-1)[0] ?? ''}: ${d.msg}`).join('\n')
-        : String(data.detail);
+      if (Array.isArray(data.detail)) {
+        msg = data.detail.map((d: any) => `${(d.loc || []).slice(-1)[0] ?? ''}: ${String(d.msg).replace(/^Value error, /, '')}`).join('\n');
+      } else if (typeof data.detail === 'object') {
+        extra = data.detail;
+        msg = String(data.detail.message ?? data.detail.code ?? msg);
+      } else msg = String(data.detail);
     }
-    if (res.status === 401 && onUnauthorized) onUnauthorized();
-    throw new ApiError(res.status, msg);
+    if (res.status === 401 && onUnauthorized && token) onUnauthorized();
+    throw new ApiError(res.status, msg, extra);
   }
   return data;
 }
@@ -101,7 +110,7 @@ export async function request<T>(method: string, path: string, body?: unknown, t
     return (await parse(res)) as T;
   } catch (e: any) {
     if (e instanceof ApiError) throw e;
-    throw new ApiError(0, `Cannot reach server at ${baseUrl}. Check Wi-Fi and the server address.`);
+    throw new ApiError(0, t('common.noInternet'));
   } finally {
     clearTimeout(timer);
   }
@@ -133,7 +142,7 @@ export const api = {
       return (await parse(res)) as T;
     } catch (e: any) {
       if (e instanceof ApiError) throw e;
-      throw new ApiError(0, 'Photo upload failed. Check your connection.');
+      throw new ApiError(0, t('common.noInternet'));
     }
   },
 
