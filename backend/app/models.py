@@ -214,3 +214,12 @@ class OtpCode(Base):
     attempts: Mapped[int] = mapped_column(Integer, default=0)
     used: Mapped[bool] = mapped_column(default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
+
+
+class CachedBlob(Base):
+    """Small key -> compressed data store (e.g. the city's place-search index), survives server restarts."""
+    __tablename__ = "cached_blobs"
+
+    key: Mapped[str] = mapped_column(String(60), primary_key=True)
+    data: Mapped[bytes] = mapped_column(LargeBinary)
+    updated_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)

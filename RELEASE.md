@@ -32,21 +32,16 @@ git push
 
 ## 1b. Maps and place search
 
-The map itself is free (MapLibre with OpenFreeMap tiles) and needs no key.
+Everything is free OpenStreetMap: no keys, no billing.
 
-For **Google-Maps-quality search**, use **Ola Maps** (Indian place data, free monthly allowance):
-
-1. Sign up at **maps.olakrutrim.com** (Ola Krutrim cloud) and create a project.
-2. Copy the **API key**.
-3. On Render, add it to the api service as `OLA_MAPS_API_KEY`.
-
-No new APK is needed: search and the address under the pin switch to Ola automatically. Without the key, search uses free OpenStreetMap data, with nearest results first. (Optional: a Google `GOOGLE_MAPS_API_KEY` also works, but it needs a billing account.)
+- **Map:** MapLibre with OpenFreeMap tiles.
+- **Search:** the server keeps its own index of every named place around Vellore (colleges, hospitals, shops, temples, bus stands, streets, areas). It downloads this once a week from the Overpass API and stores it in the database. Photon and Nominatim fill in anything else.
+- **Check it:** `/geo/status` should show `"status": "ready"` and a count of places.
 
 ## 2. Render environment variables (api service → Environment)
 
 | Variable | What to put | Needed? |
 |---|---|---|
-| `OLA_MAPS_API_KEY` | Ola Maps key: much better place search (see 1b) | recommended |
 | `APP_MODE` | `release` for the final project (no demo logins on screen, reset only to admin + fleet). `demo` while practising | yes |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_PHONE` / `ADMIN_NAME` | Your real admin login. **Set it here only, never in code.** | yes |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SID` | Real SMS codes (see 3) | optional |

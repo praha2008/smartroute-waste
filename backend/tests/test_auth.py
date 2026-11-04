@@ -135,15 +135,17 @@ def test_clear_operations_and_release_reset(monkeypatch):
 def test_geo_search_and_reverse(monkeypatch):
     from app.routers import geo
 
+    geo.reset_state()
     fake = {"features": [{"geometry": {"coordinates": [79.1559, 12.9692]},
                           "properties": {"name": "VIT Vellore", "district": "Katpadi", "city": "Vellore", "state": "Tamil Nadu"}}]}
-    monkeypatch.setattr(geo, "_get", lambda url: fake)
+    monkeypatch.setattr(geo, "_get", lambda url, *a, **k: fake)
     r = c.get("/geo/search?q=vit").json()["results"][0]
     assert r == {"title": "VIT Vellore", "subtitle": "Katpadi, Vellore, Tamil Nadu", "lat": 12.9692, "lng": 79.1559}
     assert c.get("/geo/reverse?lat=12.9692&lng=79.1559").json()["title"] == "VIT Vellore"
 
-    def boom(url):
+    def boom(url, *a, **k):
         raise OSError("offline")
+    geo.reset_state()
     monkeypatch.setattr(geo, "_get", boom)
     assert c.get("/geo/search?q=vit").json()["results"] == []
     assert c.get("/geo/reverse?lat=12.9&lng=79.1").json()["title"] == "Selected location"
@@ -198,34 +200,6 @@ def test_ward_is_filled_from_the_map_location():
     assert user["ward"] == "Katpadi"
 
 
-def test_google_places_search_details_and_reverse(monkeypatch):
-    from app import config
-    from app.routers import geo
-
-    monkeypatch.setattr(config, "GOOGLE_MAPS_API_KEY", "test-key")
-    calls = []
-
-    def fake(method, url, body=None, field_mask=None):
-        calls.append((method, url, body, field_mask))
-        if "autocomplete" in url:
-            return {"suggestions": [{"placePrediction": {"placeId": "ChIJabc", "text": {"text": "VIT, Katpadi"},
-                    "structuredFormat": {"mainText": {"text": "VIT Vellore"}, "secondaryText": {"text": "Katpadi, Vellore, Tamil Nadu, India"}}}}]}
-        if "places/ChIJabc" in url:
-            return {"location": {"latitude": 12.9692, "longitude": 79.1559}, "displayName": {"text": "VIT Vellore"},
-                    "formattedAddress": "Katpadi, Vellore, Tamil Nadu 632014, India"}
-        return {"results": [{"types": ["plus_code"], "formatted_address": "X"},
-                            {"types": ["street_address"], "formatted_address": "12, Gandhi Rd, Katpadi, Vellore, Tamil Nadu 632007, India"}]}
-    monkeypatch.setattr(geo, "_google", fake)
-    r = c.get("/geo/search?q=vit&session=s1").json()
-    assert r["provider"] == "google" and r["results"][0] == {"title": "VIT Vellore", "subtitle": "Katpadi, Vellore, Tamil Nadu", "place_id": "ChIJabc"}
-    assert calls[0][2]["sessionToken"] == "s1" and calls[0][2]["includedRegionCodes"] == ["in"]
-    p = c.get("/geo/place?id=ChIJabc&session=s1").json()
-    assert p["lat"] == 12.9692 and p["title"] == "VIT Vellore" and "sessionToken=s1" in calls[1][1]
-    rev = c.get("/geo/reverse?lat=12.97&lng=79.15").json()
-    assert rev["title"] == "12, Gandhi Rd" and rev["subtitle"].startswith("Katpadi, Vellore")
-    assert c.get("/geo/provider").json()["provider"] == "google"
-
-
 def test_sms_falls_back_to_screen_code_when_twilio_refuses(monkeypatch):
     from fastapi import HTTPException
     from app import config, notify
@@ -247,8 +221,8 @@ def test_search_falls_back_to_nominatim_when_photon_fails(monkeypatch):
     from app import config
     from app.routers import geo
 
-    monkeypatch.setattr(config, "GOOGLE_MAPS_API_KEY", "")
-    def fake(url):
+    geo.reset_state()
+    def fake(url, *a, **k):
         if "photon" in url:
             raise OSError("403 Forbidden")
         return [{"lat": "12.9692", "lon": "79.1559", "name": "VIT Vellore", "display_name": "VIT Vellore, Katpadi",
@@ -259,51 +233,12 @@ def test_search_falls_back_to_nominatim_when_photon_fails(monkeypatch):
     assert r["results"][0]["subtitle"] == "Katpadi Road, Katpadi, Vellore"
 
 
-def test_ola_maps_search_details_and_reverse(monkeypatch):
-    from app import config
-    from app.routers import geo
-
-    monkeypatch.setattr(config, "GOOGLE_MAPS_API_KEY", "")
-    monkeypatch.setattr(config, "OLA_MAPS_API_KEY", "ola-key")
-    seen = []
-
-    def fake(url):
-        seen.append(url)
-        assert "api_key=ola-key" in url
-        if "/autocomplete" in url:
-            return {"status": "ok", "predictions": [
-                {"description": "VIT Vellore, Katpadi, Vellore, Tamil Nadu, India", "place_id": "ola-platform:1",
-                 "structured_formatting": {"main_text": "VIT Vellore", "secondary_text": "Katpadi, Vellore, Tamil Nadu, India"},
-                 "geometry": {"location": {"lat": 12.9692, "lng": 79.1559}}},
-                {"description": "Vellore Fort, Vellore, Tamil Nadu", "place_id": "ola-platform:2",
-                 "structured_formatting": {"main_text": "Vellore Fort", "secondary_text": "Vellore, Tamil Nadu"}}]}
-        if "/details" in url:
-            return {"result": {"name": "Vellore Fort", "formatted_address": "Fort Rd, Vellore, Tamil Nadu 632004, India",
-                               "geometry": {"location": {"lat": 12.9206, "lng": 79.1290}}}}
-        if "/reverse-geocode" in url:
-            return {"results": [{"formatted_address": "12, Gandhi Rd, Katpadi, Vellore, Tamil Nadu 632007, India", "name": ""}]}
-        raise AssertionError(url)
-    monkeypatch.setattr(geo, "_get", fake)
-    monkeypatch.setattr(geo, "_ola", lambda path, params: fake(f"{geo.OLA}/{path}?" + __import__("urllib.parse").parse.urlencode(
-        {**params, "api_key": "ola-key"}, safe=",:")))
-    r = c.get("/geo/search?q=vit&lat=12.92&lng=79.13").json()
-    assert r["provider"] == "ola"
-    assert r["results"][0] == {"title": "VIT Vellore", "subtitle": "Katpadi, Vellore, Tamil Nadu", "lat": 12.9692, "lng": 79.1559}
-    assert r["results"][1]["place_id"] == "ola:ola-platform:2"
-    assert "location=12.920000,79.130000" in seen[0]
-    p = c.get("/geo/place?id=ola:ola-platform:2").json()
-    assert p["lat"] == 12.9206 and p["title"] == "Vellore Fort"
-    assert c.get("/geo/reverse?lat=12.97&lng=79.15").json()["title"] == "12, Gandhi Rd"
-    assert c.get("/geo/provider").json()["provider"] == "ola"
-
-
 def test_free_search_prefers_nearby_results(monkeypatch):
     from app import config
     from app.routers import geo
 
-    monkeypatch.setattr(config, "GOOGLE_MAPS_API_KEY", "")
-    monkeypatch.setattr(config, "OLA_MAPS_API_KEY", "")
-    def fake(url):
+    geo.reset_state()
+    def fake(url, *a, **k):
         if "photon" in url:
             return {"features": [
                 {"geometry": {"coordinates": [80.50, 16.49]}, "properties": {"name": "VIT-AP University", "city": "Amaravati"}},
@@ -314,15 +249,40 @@ def test_free_search_prefers_nearby_results(monkeypatch):
     assert r[0]["title"] == "VIT Vellore"
 
 
-def test_ola_error_is_reported_without_the_key(monkeypatch):
-    from app import config
+
+
+def test_local_place_index_matches_word_prefixes_nearest_first(monkeypatch):
     from app.routers import geo
 
-    monkeypatch.setattr(config, "GOOGLE_MAPS_API_KEY", "")
-    monkeypatch.setattr(config, "OLA_MAPS_API_KEY", "secret-key")
-    def bad(path, params):
-        raise RuntimeError("HTTP 401: invalid api_key secret-key")
-    monkeypatch.setattr(geo, "_ola", bad)
-    monkeypatch.setattr(geo, "_get", lambda url: {"features": []} if "photon" in url else [])
-    r = c.get("/geo/search?q=xyz").json()
-    assert any("HTTP 401" in d for d in r["detail"]) and not any("secret-key" in d for d in r["detail"])
+    geo.reset_state()
+    els = [
+        {"type": "way", "center": {"lat": 12.9692, "lon": 79.1559}, "tags": {"name": "Vellore Institute of Technology", "short_name": "VIT", "amenity": "university"}},
+        {"type": "node", "lat": 12.9246, "lon": 79.1353, "tags": {"name": "Christian Medical College Hospital", "short_name": "CMC", "amenity": "hospital"}},
+        {"type": "node", "lat": 12.9690, "lon": 79.1550, "tags": {"name": "VIT Main Gate Bus Stop", "highway": "bus_stop"}},
+        {"type": "way", "center": {"lat": 12.9700, "lon": 79.1600}, "tags": {"name": "Katpadi Road", "highway": "primary"}},
+        {"type": "way", "center": {"lat": 12.9701, "lon": 79.1601}, "tags": {"name": "Katpadi Road", "highway": "primary"}},
+        {"type": "node", "lat": 13.0, "lon": 79.0, "tags": {"amenity": "bench"}},
+    ]
+    entries = geo._build_entries(els)
+    assert len(entries) == 4  # unnamed dropped, road pieces merged
+    monkeypatch.setattr(geo, "INDEX", entries)
+    monkeypatch.setattr(geo, "_get", lambda *a, **k: (_ for _ in ()).throw(OSError("offline")))
+    r = c.get("/geo/search?q=vit uni&lat=12.92&lng=79.13").json()["results"]
+    assert r[0]["title"] == "Vellore Institute of Technology" and r[0]["subtitle"].startswith("University")
+    r = c.get("/geo/search?q=cmc").json()["results"]
+    assert r[0]["title"] == "Christian Medical College Hospital"
+    assert c.get("/geo/search?q=zzzz nothing").json()["results"] == []
+    rev = c.get("/geo/reverse?lat=12.92461&lng=79.13531").json()
+    assert rev["title"] == "Christian Medical College Hospital"
+
+
+def test_place_index_is_saved_and_reloaded_from_the_database(monkeypatch):
+    from app.routers import geo
+
+    entries = geo._build_entries([{"type": "node", "lat": 12.92, "lon": 79.13, "tags": {"name": "Test Temple", "amenity": "place_of_worship"}}])
+    geo._save(entries)
+    loaded, ts = geo._load_saved()
+    assert loaded[0]["name"] == "Test Temple" and ts > 0
+    monkeypatch.setattr(geo, "INDEX", [])
+    geo.build_index()
+    assert geo.INDEX[0]["name"] == "Test Temple" and geo.INDEX_STATE["status"] == "ready"

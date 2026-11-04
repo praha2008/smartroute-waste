@@ -24,6 +24,8 @@ with SessionLocal() as _db:
     ensure_admin(_db)  # real admin from ADMIN_EMAIL / ADMIN_PASSWORD
     ensure_employee_ids(_db)  # drivers log in with an employee ID
 
+geo.ensure_index()  # download the city's named places in the background (for place search)
+
 app = FastAPI(
     title="SmartRoute Waste API",
     version="1.0.0",
