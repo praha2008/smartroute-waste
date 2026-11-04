@@ -12,14 +12,19 @@ import Users from './pages/Users';
 import { Icon } from './ui';
 
 const PAGES = [
-  { key: 'overview', label: 'Overview', icon: 'overview', C: Overview },
-  { key: 'live', label: 'Live map & planning', icon: 'map', C: LiveMap },
-  { key: 'requests', label: 'Requests', icon: 'list', C: Requests },
-  { key: 'routes', label: 'Routes', icon: 'route', C: RoutesPage },
-  { key: 'fleet', label: 'Fleet', icon: 'truck', C: Fleet },
-  { key: 'users', label: 'Users', icon: 'users', C: Users },
-  { key: 'analytics', label: 'Analytics', icon: 'chart', C: Analytics },
+  { key: 'overview', label: 'Overview', short: 'Home', icon: 'overview', C: Overview },
+  { key: 'live', label: 'Live map & planning', short: 'Map', icon: 'map', C: LiveMap },
+  { key: 'requests', label: 'Requests', short: 'Requests', icon: 'list', C: Requests },
+  { key: 'routes', label: 'Routes', short: 'Routes', icon: 'route', C: RoutesPage },
+  { key: 'fleet', label: 'Fleet', short: 'Fleet', icon: 'truck', C: Fleet },
+  { key: 'users', label: 'Users', short: 'Users', icon: 'users', C: Users },
+  { key: 'analytics', label: 'Analytics', short: 'Stats', icon: 'chart', C: Analytics },
 ];
+
+// Chrome/Edge fire this when the dashboard can be installed as an app
+interface InstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+}
 
 export interface Me {
   id: number;
@@ -37,6 +42,21 @@ export default function App() {
   const [me, setMe] = useState<Me | null>(null);
   const [checking, setChecking] = useState(!!getToken());
   const [page, setPage] = useState(currentPage());
+  const [installEvt, setInstallEvt] = useState<InstallPromptEvent | null>(null);
+
+  useEffect(() => {
+    const onPrompt = (e: Event) => {
+      e.preventDefault();
+      setInstallEvt(e as InstallPromptEvent);
+    };
+    const onInstalled = () => setInstallEvt(null);
+    window.addEventListener('beforeinstallprompt', onPrompt);
+    window.addEventListener('appinstalled', onInstalled);
+    return () => {
+      window.removeEventListener('beforeinstallprompt', onPrompt);
+      window.removeEventListener('appinstalled', onInstalled);
+    };
+  }, []);
 
   useEffect(() => {
     onAuthLost(() => {
@@ -72,9 +92,21 @@ export default function App() {
         {PAGES.map((p) => (
           <button key={p.key} className={`nav-item ${p.key === page ? 'active' : ''}`} onClick={() => (window.location.hash = `#/${p.key}`)}>
             <Icon name={p.icon} />
-            {p.label}
+            <span className="nav-long">{p.label}</span>
+            <span className="nav-short">{p.short}</span>
           </button>
         ))}
+        {installEvt && (
+          <button
+            className="btn small install-btn"
+            onClick={async () => {
+              await installEvt.prompt();
+              setInstallEvt(null);
+            }}
+          >
+            Install as app
+          </button>
+        )}
         <div className="side-foot">
           <div style={{ color: '#fff', fontWeight: 600 }}>{me.name}</div>
           <div>{me.email}</div>
@@ -90,6 +122,20 @@ export default function App() {
         </div>
       </aside>
       <main className="main">
+        <div className="mobile-top">
+          <div className="brand-mark">SR</div>
+          <b>SmartRoute Control</b>
+          <button
+            className="btn small"
+            style={{ marginLeft: 'auto' }}
+            onClick={() => {
+              setToken(null);
+              setMe(null);
+            }}
+          >
+            Log out
+          </button>
+        </div>
         <Page />
       </main>
     </div>

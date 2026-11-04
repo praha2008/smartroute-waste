@@ -43,7 +43,7 @@ export default function Overview() {
         </div>
       )}
 
-      <div className="grid" style={{ gridTemplateColumns: 'minmax(0,2fr) minmax(0,1fr)', marginTop: 16 }}>
+      <div className="grid two-col" style={{ marginTop: 16 }}>
         <div className="card card-pad">
           <div className="card-title">Requests per day · last 14 days</div>
           {an ? <StackedDaily data={an.daily_requests} /> : <div className="faint">Loading…</div>}

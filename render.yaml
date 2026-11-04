@@ -1,4 +1,4 @@
-# Render Blueprint: deploys the backend as a free web service.
+# Render Blueprint: deploys the backend API and the admin dashboard (both free).
 # Render dashboard -> New -> Blueprint -> pick this GitHub repo.
 services:
   - type: web
@@ -18,3 +18,19 @@ services:
         generateValue: true
       - key: SEED_ON_START # fill an empty database with the Vellore demo data
         value: "true"
+
+  - type: web
+    name: smartroute-dashboard
+    runtime: static
+    rootDir: dashboard
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_API_URL # the hosted API above
+        value: https://smartroute-api-8lxy.onrender.com
+      - key: NODE_VERSION
+        value: "20"
+    headers:
+      - path: /sw.js
+        name: Cache-Control
+        value: no-cache
