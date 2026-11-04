@@ -4,6 +4,7 @@
 
 > Innovative Design Project (IDP) · VIT Vellore · 2026
 
+<!-- Screenshots: add the PNGs to docs/screenshots/ and remove this comment line and the one after the gallery
 <p align="center">
   <img src="docs/screenshots/citizen-home.png" width="200" alt="Citizen app home">
   <img src="docs/screenshots/location-picker.png" width="200" alt="Pick pickup location">
@@ -13,6 +14,16 @@
 <p align="center">
   <img src="docs/screenshots/dashboard-livemap.png" width="820" alt="Admin dashboard: live map with clusters and routes">
 </p>
+-->
+
+## 🚀 How to use (live demo)
+| Step | |
+|---|---|
+| **1. Wake the server** (free hosting sleeps after 15 min) | Open **https://smartroute-api-8lxy.onrender.com/meta** and wait until text appears (up to 1 min) |
+| **2. Install the Android apps** | Citizen, Driver and Recycler APKs on the **[Releases page](https://github.com/praha2008/smartroute-waste/releases)** |
+| **3. Admin dashboard** | **https://smartroute-dashboard-ezba.onrender.com** (works on phone and laptop) |
+
+📖 **Full walkthrough for every app, plus troubleshooting: [docs/USER_GUIDE.md](docs/USER_GUIDE.md)**
 
 ## The problem
 Most Indian cities collect garbage on **fixed routes on fixed days**. The truck passes empty streets and misses overflowing ones. Hazardous waste waits like everything else, and segregated recyclables end up in the landfill.
@@ -62,9 +73,9 @@ The trade-off: the average wait is a little longer (3.6 h vs 3.4 h), because low
 
 Maps and search are 100% free and open: OpenFreeMap tiles, plus an OpenStreetMap place index of Vellore built from the Overpass API, with Photon and Nominatim as backups.
 
-## Try it
-- **Android apps:** download the APKs from the [Releases](../../releases) page.
-- **Run it yourself:** see [docs/SETUP.md](docs/SETUP.md) (laptop) and [DEPLOY.md](DEPLOY.md) (free cloud hosting on Render + Neon). For a real deployment, see [RELEASE.md](RELEASE.md).
+## Run it yourself
+- **How to use the live apps:** [docs/USER_GUIDE.md](docs/USER_GUIDE.md)
+- **On your laptop / your own server:** see [docs/SETUP.md](docs/SETUP.md) (laptop) and [DEPLOY.md](DEPLOY.md) (free cloud hosting on Render + Neon). For a real deployment, see [RELEASE.md](RELEASE.md).
 - **Tests:** `cd backend && pytest`
 
 ## Limitations and next steps

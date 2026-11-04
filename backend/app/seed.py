@@ -127,9 +127,24 @@ def ensure_admin(db) -> User | None:
         return None
     u = db.query(User).filter(User.email == ADMIN_EMAIL.lower()).first()
     if u is None:
+        phone = None
+        if ADMIN_PHONE:
+            try:
+                from .routers.auth import normalize_phone
+
+                phone = normalize_phone(ADMIN_PHONE)  # "6374255206" -> "+916374255206", so phone login works
+            except Exception:
+                phone = ADMIN_PHONE
         u = User(name=ADMIN_NAME, email=ADMIN_EMAIL.lower(), role="admin", password_hash=hash_password(ADMIN_PASSWORD),
-                 phone=ADMIN_PHONE or None, phone_verified=True, approved=True)
+                 phone=phone, phone_verified=True, approved=True)
         db.add(u)
+    elif ADMIN_PHONE and u.phone and not u.phone.startswith("+"):
+        from .routers.auth import normalize_phone
+
+        try:
+            u.phone = normalize_phone(u.phone)
+        except Exception:
+            pass
     # once a real admin exists, the public demo admin (admin@smartroute.in / admin123, visible in this
     # open-source code) is switched off so nobody can log into the dashboard with it
     if ADMIN_EMAIL.lower() != "admin@smartroute.in":

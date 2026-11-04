@@ -295,8 +295,10 @@ def test_real_admin_switches_off_the_public_demo_admin(monkeypatch):
 
     monkeypatch.setattr(config, "ADMIN_EMAIL", "boss@vellore.gov.in")
     monkeypatch.setattr(config, "ADMIN_PASSWORD", "Str0ng-pass")
+    monkeypatch.setattr(config, "ADMIN_PHONE", "6374255000")
     with SessionLocal() as db:
         ensure_admin(db)
+    assert c.post("/auth/login", json={"email": "6374255000", "password": "Str0ng-pass"}).status_code == 200
     assert c.post("/auth/login", json={"email": "admin@smartroute.in", "password": "admin123"}).status_code == 403
     assert c.post("/auth/login", json={"email": "boss@vellore.gov.in", "password": "Str0ng-pass"}).status_code == 200
     with SessionLocal() as db:  # undo for other tests
