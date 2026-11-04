@@ -79,3 +79,14 @@ def test_urgent_deadline_visited_early():
     r = routes[0]
     pos = [j.id for j in r.jobs].index(99)
     assert r.arrival_min[pos] <= 25  # reached within (about) its deadline
+
+
+def test_evaluation_simulation_runs_and_smart_is_on_time():
+    from app.engine.evaluate import evaluate
+
+    res = evaluate(40, 120, seed=3, time_limit_s=0.5)
+    by = {m["strategy"]: m for m in res["results"]}
+    assert set(by) == {"fixed", "greedy", "smart"}
+    assert by["smart"]["collected"] == 40
+    assert by["smart"]["on_time_pct"] >= by["fixed"]["on_time_pct"]
+    assert by["smart"]["late_hazardous"] <= by["fixed"]["late_hazardous"]

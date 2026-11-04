@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 
 import { api, getToken, onAuthLost, setToken } from './api';
 import Analytics from './pages/Analytics';
+import Evaluation from './pages/Evaluation';
 import Fleet from './pages/Fleet';
 import LiveMap from './pages/LiveMap';
 import Login from './pages/Login';
@@ -19,6 +20,7 @@ const PAGES = [
   { key: 'fleet', label: 'Fleet', short: 'Fleet', icon: 'truck', C: Fleet },
   { key: 'users', label: 'Users', short: 'Users', icon: 'users', C: Users },
   { key: 'analytics', label: 'Analytics', short: 'Stats', icon: 'chart', C: Analytics },
+  { key: 'evaluation', label: 'Evaluation', short: 'Results', icon: 'compare', C: Evaluation },
 ];
 
 // Chrome/Edge fire this when the dashboard can be installed as an app

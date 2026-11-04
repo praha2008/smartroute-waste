@@ -133,3 +133,121 @@ export function HBars({ items, format }: { items: { label: string; value: number
     </div>
   );
 }
+
+export interface LineSeries {
+  name: string;
+  color: string;
+  values: number[];
+}
+
+/** Multi-series line chart over numeric x values, with crosshair tooltip and end-of-line labels. */
+export function LineChart({
+  x,
+  series,
+  xLabel,
+  yLabel,
+  format,
+  yMin,
+  yMax,
+}: {
+  x: number[];
+  series: LineSeries[];
+  xLabel: string;
+  yLabel: string;
+  format: (v: number) => string;
+  yMin?: number;
+  yMax?: number;
+}) {
+  const [hover, setHover] = useState<number | null>(null);
+  const [tip, setTip] = useState<Tip | null>(null);
+  const W = 560;
+  const H = 260;
+  const pad = { l: 46, r: 92, t: 12, b: 40 };
+  const all = series.flatMap((s) => s.values);
+  const lo = yMin ?? Math.min(0, ...all);
+  const rawHi = yMax ?? Math.max(...all);
+  const step = niceStep((rawHi - lo) / 4);
+  const hi = yMax ?? Math.ceil(rawHi / step) * step;
+  const ticks: number[] = [];
+  for (let v = lo; v <= hi + 1e-9; v += step) ticks.push(v);
+  const X = (v: number) => pad.l + ((v - x[0]) / (x[x.length - 1] - x[0] || 1)) * (W - pad.l - pad.r);
+  const Y = (v: number) => pad.t + (1 - (v - lo) / (hi - lo || 1)) * (H - pad.t - pad.b);
+
+  // spread end labels so they don't collide
+  const ends = series
+    .map((s) => ({ s, y: Y(s.values[s.values.length - 1]) }))
+    .sort((a, b) => a.y - b.y);
+  for (let i = 1; i < ends.length; i++) if (ends[i].y - ends[i - 1].y < 14) ends[i].y = ends[i - 1].y + 14;
+
+  return (
+    <>
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="chart"
+        role="img"
+        aria-label={`${yLabel} by ${xLabel}`}
+        onMouseLeave={() => {
+          setHover(null);
+          setTip(null);
+        }}
+        onMouseMove={(e) => {
+          const r = (e.currentTarget as SVGSVGElement).getBoundingClientRect();
+          const px = ((e.clientX - r.left) / r.width) * W;
+          let best = 0;
+          x.forEach((v, i) => {
+            if (Math.abs(X(v) - px) < Math.abs(X(x[best]) - px)) best = i;
+          });
+          setHover(best);
+          setTip({ x: e.clientX, y: e.clientY, title: `${x[best]} ${xLabel}`, rows: series.map((s) => ({ label: s.name, value: format(s.values[best]), color: s.color })) });
+        }}
+      >
+        {ticks.map((t) => (
+          <g key={t}>
+            <line x1={pad.l} x2={W - pad.r} y1={Y(t)} y2={Y(t)} stroke="#e8ecea" />
+            <text x={pad.l - 6} y={Y(t) + 4} fontSize="10" textAnchor="end" fill="#85918b">
+              {format(t)}
+            </text>
+          </g>
+        ))}
+        {x.map((v) => (
+          <text key={v} x={X(v)} y={H - pad.b + 16} fontSize="10" textAnchor="middle" fill="#85918b">
+            {v}
+          </text>
+        ))}
+        <text x={(pad.l + W - pad.r) / 2} y={H - 6} fontSize="11" textAnchor="middle" fill="#4d5b55">
+          {xLabel}
+        </text>
+        {hover !== null && <line x1={X(x[hover])} x2={X(x[hover])} y1={pad.t} y2={H - pad.b} stroke="#c9d1cd" strokeDasharray="3 3" />}
+        {series.map((s) => (
+          <g key={s.name}>
+            <polyline fill="none" stroke={s.color} strokeWidth="2" strokeLinejoin="round" points={s.values.map((v, i) => `${X(x[i])},${Y(v)}`).join(' ')} />
+            {s.values.map((v, i) => (
+              <circle key={i} cx={X(x[i])} cy={Y(v)} r={hover === i ? 5 : 3.5} fill={s.color} stroke="#fff" strokeWidth="2" />
+            ))}
+          </g>
+        ))}
+        {ends.map(({ s, y }) => (
+          <text key={s.name} x={W - pad.r + 8} y={y + 4} fontSize="11" fontWeight="600" fill="#4d5b55">
+            {s.name}
+          </text>
+        ))}
+      </svg>
+      <div className="legend">
+        {series.map((s) => (
+          <span key={s.name}>
+            <i className="swatch" style={{ background: s.color }} />
+            {s.name}
+          </span>
+        ))}
+      </div>
+      <Tooltip tip={tip} />
+    </>
+  );
+}
+
+function niceStep(raw: number) {
+  if (raw <= 0) return 1;
+  const p = Math.pow(10, Math.floor(Math.log10(raw)));
+  const n = raw / p;
+  return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p;
+}

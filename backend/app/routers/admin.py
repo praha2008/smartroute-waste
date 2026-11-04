@@ -238,6 +238,35 @@ def reset_demo(confirm: str = Query(..., description='type RESET to confirm'),
     return {"ok": True, "message": "Demo data reset. Please log in again."}
 
 
+# ------------------------------------------------------------------ evaluation
+@router.get("/evaluation")
+def published_evaluation(_: User = Depends(admin)):
+    """The full study (3 strategies, demand sweep over 3 seeds, re-planning trade-off), pre-computed
+    with `python -m app.engine.evaluate --publish`."""
+    import json
+
+    from ..engine.evaluate import PUBLISHED
+
+    try:
+        with open(PUBLISHED) as f:
+            return json.load(f)
+    except FileNotFoundError:
+        raise HTTPException(404, "No published results yet. Run: python -m app.engine.evaluate --publish")
+
+
+@router.post("/evaluate")
+def run_evaluation(
+    requests: int = Query(120, ge=20, le=250, description="requests in the simulated day"),
+    seed: int = Query(7, ge=1, le=9999, description="random scenario number"),
+    replan_h: float = Query(4, ge=2, le=6, description="SmartRoute re-planning interval (hours)"),
+    _: User = Depends(admin),
+):
+    """Simulate one day live: fixed schedule vs greedy vs SmartRoute on the same requests (10-60 s)."""
+    from ..engine.evaluate import evaluate
+
+    return evaluate(requests, 300, seed, time_limit_s=1.0, replan_h=replan_h)
+
+
 # ------------------------------------------------------------------ analytics
 @router.get("/analytics")
 def analytics(days: int = 14, _: User = Depends(admin), db: Session = Depends(get_db)):

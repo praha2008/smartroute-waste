@@ -1,0 +1,307 @@
+{
+ "generated": "2026-11-04",
+ "main": {
+  "scenario": {
+   "requests": 120,
+   "generators": 300,
+   "seed": 7,
+   "replan_h": 4,
+   "fleet": [
+    {
+     "name": "Compactor 1",
+     "capacity_kg": 2000,
+     "allowed": [
+      "general",
+      "organic"
+     ]
+    },
+    {
+     "name": "Compactor 2",
+     "capacity_kg": 2000,
+     "allowed": [
+      "general",
+      "organic",
+      "recyclable"
+     ]
+    },
+    {
+     "name": "Recycling Truck",
+     "capacity_kg": 1200,
+     "allowed": [
+      "e_waste",
+      "general",
+      "recyclable"
+     ]
+    },
+    {
+     "name": "Hazmat Van",
+     "capacity_kg": 400,
+     "allowed": [
+      "e_waste",
+      "hazardous"
+     ]
+    }
+   ],
+   "by_type": {
+    "organic": 45,
+    "recyclable": 27,
+    "hazardous": 10,
+    "e_waste": 14,
+    "general": 24
+   }
+  },
+  "results": [
+   {
+    "strategy": "fixed",
+    "requests": 120,
+    "collected": 101,
+    "collected_pct": 84.2,
+    "on_time_pct": 79.2,
+    "late_hazardous": 5,
+    "avg_wait_h": 3.41,
+    "total_km": 225.0,
+    "fuel_l": 90.0,
+    "co2_kg": 241.2,
+    "km_per_pickup": 2.23,
+    "truck_trips": 7,
+    "utilization_pct": 7.7,
+    "compute_s": 0.2,
+    "timeline": [
+     {
+      "time": 420,
+      "km": 96.1,
+      "collected": 43
+     },
+     {
+      "time": 840,
+      "km": 225.0,
+      "collected": 101
+     }
+    ]
+   },
+   {
+    "strategy": "greedy",
+    "requests": 120,
+    "collected": 120,
+    "collected_pct": 100.0,
+    "on_time_pct": 99.2,
+    "late_hazardous": 0,
+    "avg_wait_h": 3.13,
+    "total_km": 352.4,
+    "fuel_l": 141.0,
+    "co2_kg": 377.7,
+    "km_per_pickup": 2.94,
+    "truck_trips": 16,
+    "utilization_pct": 4.4,
+    "compute_s": 0.0,
+    "timeline": [
+     {
+      "time": 420,
+      "km": 86.4,
+      "collected": 19
+     },
+     {
+      "time": 660,
+      "km": 209.0,
+      "collected": 81
+     },
+     {
+      "time": 900,
+      "km": 295.9,
+      "collected": 101
+     },
+     {
+      "time": 1140,
+      "km": 352.4,
+      "collected": 120
+     }
+    ]
+   },
+   {
+    "strategy": "smart",
+    "requests": 120,
+    "collected": 120,
+    "collected_pct": 100.0,
+    "on_time_pct": 100.0,
+    "late_hazardous": 0,
+    "avg_wait_h": 3.64,
+    "total_km": 195.1,
+    "fuel_l": 78.0,
+    "co2_kg": 209.2,
+    "km_per_pickup": 1.63,
+    "truck_trips": 11,
+    "utilization_pct": 7.0,
+    "compute_s": 6.1,
+    "timeline": [
+     {
+      "time": 420,
+      "km": 27.2,
+      "collected": 9
+     },
+     {
+      "time": 660,
+      "km": 116.6,
+      "collected": 80
+     },
+     {
+      "time": 900,
+      "km": 155.8,
+      "collected": 96
+     },
+     {
+      "time": 1140,
+      "km": 195.1,
+      "collected": 120
+     }
+    ]
+   }
+  ],
+  "smart_vs_fixed": {
+   "km_change_pct": -13.3,
+   "co2_saved_kg": 32.0,
+   "on_time_change_pts": 20.8,
+   "wait_change_pct": 6.7
+  },
+  "assumptions": [
+   "Same requests, same 4 trucks and the same depot for every strategy.",
+   "Fixed schedule: 3 trucks tour all registered generators of their sector at 07:00 and 14:00; the hazmat van does one 14:00 run for hazardous and e-waste.",
+   "On-demand strategies re-plan every 4 h between 07:00 and 19:00; each route must finish before the next re-plan.",
+   "Road distance = Haversine x 1.35; average speed 20 km/h; 4 min loading per stop.",
+   "Fuel 2.5 km/L, 2.68 kg CO2 per litre of diesel (indicative values)."
+  ]
+ },
+ "demand_sweep": [
+  {
+   "requests": 50,
+   "fixed_total_km": 206.5,
+   "fixed_on_time_pct": 84.0,
+   "fixed_collected_pct": 86.0,
+   "fixed_avg_wait_h": 3.5,
+   "fixed_co2_kg": 221.3,
+   "greedy_total_km": 198.9,
+   "greedy_on_time_pct": 98.7,
+   "greedy_collected_pct": 100.0,
+   "greedy_avg_wait_h": 2.7,
+   "greedy_co2_kg": 213.2,
+   "smart_total_km": 121.8,
+   "smart_on_time_pct": 98.7,
+   "smart_collected_pct": 100.0,
+   "smart_avg_wait_h": 3.9,
+   "smart_co2_kg": 130.5
+  },
+  {
+   "requests": 100,
+   "fixed_total_km": 210.8,
+   "fixed_on_time_pct": 82.0,
+   "fixed_collected_pct": 86.3,
+   "fixed_avg_wait_h": 3.5,
+   "fixed_co2_kg": 226.0,
+   "greedy_total_km": 322.9,
+   "greedy_on_time_pct": 98.7,
+   "greedy_collected_pct": 100.0,
+   "greedy_avg_wait_h": 3.2,
+   "greedy_co2_kg": 346.2,
+   "smart_total_km": 179.2,
+   "smart_on_time_pct": 99.0,
+   "smart_collected_pct": 100.0,
+   "smart_avg_wait_h": 3.9,
+   "smart_co2_kg": 192.1
+  },
+  {
+   "requests": 150,
+   "fixed_total_km": 219.4,
+   "fixed_on_time_pct": 84.2,
+   "fixed_collected_pct": 87.6,
+   "fixed_avg_wait_h": 3.5,
+   "fixed_co2_kg": 235.2,
+   "greedy_total_km": 388.5,
+   "greedy_on_time_pct": 98.7,
+   "greedy_collected_pct": 100.0,
+   "greedy_avg_wait_h": 3.4,
+   "greedy_co2_kg": 416.5,
+   "smart_total_km": 239.1,
+   "smart_on_time_pct": 98.9,
+   "smart_collected_pct": 100.0,
+   "smart_avg_wait_h": 3.7,
+   "smart_co2_kg": 256.3
+  },
+  {
+   "requests": 200,
+   "fixed_total_km": 224.3,
+   "fixed_on_time_pct": 84.0,
+   "fixed_collected_pct": 88.3,
+   "fixed_avg_wait_h": 3.7,
+   "fixed_co2_kg": 240.5,
+   "greedy_total_km": 454.0,
+   "greedy_on_time_pct": 98.2,
+   "greedy_collected_pct": 100.0,
+   "greedy_avg_wait_h": 3.6,
+   "greedy_co2_kg": 486.6,
+   "smart_total_km": 274.2,
+   "smart_on_time_pct": 98.8,
+   "smart_collected_pct": 100.0,
+   "smart_avg_wait_h": 3.7,
+   "smart_co2_kg": 294.0
+  },
+  {
+   "requests": 250,
+   "fixed_total_km": 227.4,
+   "fixed_on_time_pct": 83.6,
+   "fixed_collected_pct": 88.8,
+   "fixed_avg_wait_h": 3.8,
+   "fixed_co2_kg": 243.8,
+   "greedy_total_km": 492.2,
+   "greedy_on_time_pct": 97.9,
+   "greedy_collected_pct": 100.0,
+   "greedy_avg_wait_h": 4.0,
+   "greedy_co2_kg": 527.7,
+   "smart_total_km": 316.5,
+   "smart_on_time_pct": 98.4,
+   "smart_collected_pct": 100.0,
+   "smart_avg_wait_h": 3.8,
+   "smart_co2_kg": 339.3
+  }
+ ],
+ "demand_seeds": 3,
+ "tradeoff": {
+  "fixed": {
+   "total_km": 225.0,
+   "on_time_pct": 79.2,
+   "avg_wait_h": 3.41
+  },
+  "smart": [
+   {
+    "replan_h": 2,
+    "total_km": 262.8,
+    "on_time_pct": 100.0,
+    "avg_wait_h": 2.52,
+    "truck_trips": 16,
+    "late_hazardous": 0
+   },
+   {
+    "replan_h": 3,
+    "total_km": 213.0,
+    "on_time_pct": 100.0,
+    "avg_wait_h": 2.76,
+    "truck_trips": 13,
+    "late_hazardous": 0
+   },
+   {
+    "replan_h": 4,
+    "total_km": 195.1,
+    "on_time_pct": 100.0,
+    "avg_wait_h": 3.64,
+    "truck_trips": 11,
+    "late_hazardous": 0
+   },
+   {
+    "replan_h": 6,
+    "total_km": 182.6,
+    "on_time_pct": 97.5,
+    "avg_wait_h": 5.27,
+    "truck_trips": 8,
+    "late_hazardous": 1
+   }
+  ]
+ }
+}
