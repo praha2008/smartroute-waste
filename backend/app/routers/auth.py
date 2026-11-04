@@ -9,7 +9,7 @@ from ..geo import nearest_ward
 from .. import notify
 from ..database import get_db
 from ..models import CreditTransaction, User
-from ..schemas import (ChangePasswordIn, CodeSentOut, CreditTxOut, ForgotIn, LoginIn, PhoneIn, ProfileUpdate,
+from ..schemas import (ChangePasswordIn, CodeSentOut, CreditTxOut, DriverLoginIn, ForgotIn, LoginIn, PhoneIn, ProfileUpdate,
                        RegisterIn, ResetIn, TokenOut, UserOut, VerifyPhoneIn)
 from ..security import create_token, get_current_user, hash_password, verify_password
 
@@ -120,6 +120,29 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
         raise HTTPException(409, {"code": "PHONE_NOT_VERIFIED", "phone": user.phone, "target": mask(user.phone),
                                   "message": "Please verify your mobile number first. We sent a new code.",
                                   "dev_code": notify_res.get("dev_code")})
+    return _token(user, db)
+
+
+_pin_fails: dict[str, list[float]] = {}  # employee ID -> times of recent wrong PINs
+
+
+@router.post("/driver-login", response_model=TokenOut)
+def driver_login(body: DriverLoginIn, db: Session = Depends(get_db)):
+    """Drivers are registered by the municipality and log in with their employee ID only."""
+    import time
+
+    emp = body.employee_id.strip().upper().replace(" ", "")
+    fails = _pin_fails.get(emp, [])
+    fails = [t for t in fails if time.time() - t < 900]
+    if len(fails) >= 5:
+        raise HTTPException(429, "Too many wrong PINs. Try again in 15 minutes or ask the municipality office.")
+    user = db.scalar(select(User).where(func.upper(User.employee_id) == emp, User.role == "collector"))
+    if not user or not user.pin_hash or not verify_password(body.pin.strip(), user.pin_hash):
+        _pin_fails[emp] = fails + [time.time()]
+        raise HTTPException(401, "Wrong employee ID or PIN")
+    if not user.is_active:
+        raise HTTPException(403, "This account has been disabled. Contact the municipality.")
+    _pin_fails.pop(emp, None)
     return _token(user, db)
 
 

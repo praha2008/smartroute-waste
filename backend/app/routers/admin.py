@@ -212,22 +212,48 @@ def list_users(role: str | None = None, _: User = Depends(admin), db: Session = 
     return db.scalars(q.order_by(User.id)).all()
 
 
-@router.post("/users", response_model=UserOut, status_code=201)
+def _new_pin() -> str:
+    import secrets
+
+    return f"{secrets.randbelow(10000):04d}"
+
+
+@router.post("/users", status_code=201)
 def create_user(body: StaffCreate, _: User = Depends(admin), db: Session = Depends(get_db)):
-    """Staff accounts (drivers, admins, recyclers) get a temporary password they must change at first login."""
+    """Drivers: name + employee ID (they log in with the ID only). Other staff: email + a temporary password
+    they must change at first login."""
+    import secrets
+
+    from ..seed import next_employee_id
     from .auth import normalize_phone
 
+    phone = normalize_phone(body.phone) if body.phone and body.phone.strip() else None
+    if phone and db.scalar(select(User).where(User.phone == phone)):
+        raise HTTPException(400, "Mobile number already used")
+    if body.role == "collector":
+        emp = (body.employee_id or "").strip().upper().replace(" ", "") or next_employee_id(db)
+        if db.scalar(select(User).where(func.upper(User.employee_id) == emp)):
+            raise HTTPException(400, f"Employee ID {emp} is already used")
+        email = (body.email or "").strip().lower() or f"{emp.lower()}@drivers.smartroute.local"
+        if db.scalar(select(User).where(func.lower(User.email) == email)):
+            raise HTTPException(400, "Email already used")
+        pin = body.pin or _new_pin()
+        u = User(name=body.name.strip(), email=email, phone=phone, role="collector", employee_id=emp,
+                 password_hash=hash_password(secrets.token_urlsafe(16)), pin_hash=hash_password(pin),
+                 phone_verified=True, approved=True, must_change_password=False)
+        db.add(u)
+        db.commit()
+        return {**UserOut.model_validate(u).model_dump(mode="json"), "pin": pin}
+    if not body.email or not body.password or len(body.password) < 6:
+        raise HTTPException(400, "Email and a temporary password (6+ characters) are required")
     email = body.email.strip().lower()
     if db.scalar(select(User).where(func.lower(User.email) == email)):
         raise HTTPException(400, "Email already used")
-    phone = normalize_phone(body.phone) if body.phone else None
-    if phone and db.scalar(select(User).where(User.phone == phone)):
-        raise HTTPException(400, "Mobile number already used")
     u = User(name=body.name, email=email, phone=phone, role=body.role, password_hash=hash_password(body.password),
              phone_verified=True, approved=True, must_change_password=True)
     db.add(u)
     db.commit()
-    return u
+    return UserOut.model_validate(u).model_dump(mode="json")
 
 
 @router.post("/users/{user_id}/set/{action}", response_model=UserOut)
@@ -244,6 +270,18 @@ def user_action(user_id: int, action: Literal["approve", "disable", "enable"], m
         u.is_active = action == "enable"
     db.commit()
     return u
+
+
+@router.post("/users/{user_id}/reset-pin")
+def reset_pin(user_id: int, _: User = Depends(admin), db: Session = Depends(get_db)):
+    """New 4-digit PIN for a driver (shown once to the admin)."""
+    u = db.get(User, user_id)
+    if not u or u.role != "collector":
+        raise HTTPException(404, "Driver not found")
+    pin = _new_pin()
+    u.pin_hash = hash_password(pin)
+    db.commit()
+    return {"pin": pin, "employee_id": u.employee_id}
 
 
 @router.post("/users/{user_id}/reset-password")

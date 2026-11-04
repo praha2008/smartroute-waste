@@ -18,10 +18,11 @@ if config.SEED_ON_START:
     seed(reset=False, mode="release" if config.APP_MODE == "release" else "clean")  # only fills an empty database
 
 from .database import SessionLocal  # noqa: E402
-from .seed import ensure_admin  # noqa: E402
+from .seed import ensure_admin, ensure_employee_ids  # noqa: E402
 
 with SessionLocal() as _db:
     ensure_admin(_db)  # real admin from ADMIN_EMAIL / ADMIN_PASSWORD
+    ensure_employee_ids(_db)  # drivers log in with an employee ID
 
 app = FastAPI(
     title="SmartRoute Waste API",

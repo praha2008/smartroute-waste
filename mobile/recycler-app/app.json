@@ -2,7 +2,7 @@
   "expo": {
     "name": "SmartRoute Recycle",
     "slug": "smartroute-recycler",
-    "version": "2.0.0",
+    "version": "2.0.1",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "backgroundColor": "#F4F6F5",
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#C16A00"
       },
-      "versionCode": 2,
+      "versionCode": 3,
       "softwareKeyboardLayoutMode": "resize"
     },
     "plugins": [

@@ -43,7 +43,7 @@ export default function Users() {
   const [confirmText, setConfirmText] = useState('');
   const [working, setWorking] = useState(false);
   const [resetMode, setResetMode] = useState<ResetMode>('clean');
-  const [tempPw, setTempPw] = useState<{ name: string; email: string; phone: string; password: string } | null>(null);
+  const [tempPw, setTempPw] = useState<{ name: string; email: string; phone: string; password: string; employeeId?: string; pin?: string } | null>(null);
   const [busyId, setBusyId] = useState<number | null>(null);
 
   const resetDemo = async () => {
@@ -101,11 +101,25 @@ export default function Users() {
     }
   };
 
+  const resetPin = async (u: any) => {
+    if (!window.confirm(`Give ${u.name} a new PIN? The old PIN stops working.`)) return;
+    setBusyId(u.id);
+    try {
+      const r = await api.post<{ pin: string; employee_id: string }>(`/admin/users/${u.id}/reset-pin`);
+      setTempPw({ name: u.name, email: u.email, phone: u.phone, password: '', employeeId: r.employee_id, pin: r.pin });
+    } catch (e: any) {
+      alert(e.message);
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   const save = async () => {
     setErr(null);
     try {
-      const created = await api.post<any>('/admin/users', form);
-      setTempPw({ name: created.name, email: created.email, phone: created.phone, password: form.password });
+      const body = form.role === 'collector' ? { name: form.name, role: 'collector', employee_id: form.employee_id || null, pin: form.pin || null, phone: form.phone || null } : form;
+      const created = await api.post<any>('/admin/users', body);
+      setTempPw({ name: created.name, email: created.email, phone: created.phone, password: form.password, employeeId: created.employee_id ?? undefined, pin: created.pin ?? undefined });
       setForm(null);
       setRole(form.role);
       reload();
@@ -125,8 +139,8 @@ export default function Users() {
         <button className="btn danger" onClick={() => { setConfirmText(''); setErr(null); setResetMode(release ? 'release' : 'clean'); setResetOpen(true); }}>
           Reset data
         </button>
-        <button className="btn primary" onClick={() => setForm({ name: '', email: '', phone: '', password: `SR-${Math.random().toString(36).slice(2, 8)}`, role: 'collector' })}>
-          <Icon name="plus" /> Add staff account
+        <button className="btn primary" onClick={() => { setErr(null); setForm({ name: '', employee_id: '', pin: '', email: '', phone: '', password: `SR-${Math.random().toString(36).slice(2, 8)}`, role: 'collector' }); }}>
+          <Icon name="plus" /> Add driver / staff
         </button>
       </PageHead>
 
@@ -152,6 +166,7 @@ export default function Users() {
           <thead>
             <tr>
               <th>Name</th>
+              {role === 'collector' && <th>Employee ID</th>}
               <th>Contact</th>
               {role === 'citizen' && <th>Type</th>}
               <th>Ward</th>
@@ -175,9 +190,14 @@ export default function Users() {
                   <b>{u.name}</b>
                   {u.organization && u.organization !== u.name && <div className="faint">{u.organization}</div>}
                 </td>
+                {role === 'collector' && (
+                  <td>
+                    <b style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 14 }}>{u.employee_id ?? '—'}</b>
+                  </td>
+                )}
                 <td>
                   <div>{u.phone ?? '—'}</div>
-                  <div className="faint">{u.email}</div>
+                  {!String(u.email).endsWith('.local') && <div className="faint">{u.email}</div>}
                 </td>
                 {role === 'citizen' && <td>{u.account_type}</td>}
                 <td>{u.ward ?? '—'}</td>
@@ -193,7 +213,12 @@ export default function Users() {
                         Approve
                       </button>
                     )}
-                    {u.role !== 'admin' && (
+                    {u.role === 'collector' && (
+                      <button className="btn small" disabled={busyId === u.id} onClick={() => resetPin(u)}>
+                        New PIN
+                      </button>
+                    )}
+                    {u.role !== 'admin' && u.role !== 'collector' && (
                       <button className="btn small" disabled={busyId === u.id} onClick={() => resetPassword(u)}>
                         Reset password
                       </button>
@@ -217,17 +242,37 @@ export default function Users() {
       </div>
 
       {tempPw && (
-        <Modal title="Temporary password" onClose={() => setTempPw(null)}>
-          <p style={{ marginTop: 0 }}>
-            Give these login details to <b>{tempPw.name}</b>. They will be asked to set their own password on first login.
-          </p>
-          <div className="card" style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 15, lineHeight: 1.8 }}>
-            Login: {tempPw.phone || tempPw.email}
-            <br />
-            Password: <b>{tempPw.password}</b>
-          </div>
+        <Modal title={tempPw.employeeId ? 'Driver login details' : 'Temporary password'} onClose={() => setTempPw(null)}>
+          {tempPw.employeeId ? (
+            <>
+              <p style={{ marginTop: 0 }}>
+                Give these to <b>{tempPw.name}</b> for the Driver app. The PIN is shown only now, so note it down. Then assign a truck on the <b>Fleet</b> page.
+              </p>
+              <div className="card" style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 22, fontWeight: 800, textAlign: 'center', letterSpacing: 2, lineHeight: 1.7 }}>
+                Employee ID: {tempPw.employeeId}
+                <br />
+                PIN: {tempPw.pin}
+              </div>
+            </>
+          ) : (
+            <>
+              <p style={{ marginTop: 0 }}>
+                Give these login details to <b>{tempPw.name}</b>. They will be asked to set their own password on first login.
+              </p>
+              <div className="card" style={{ fontFamily: 'ui-monospace, Menlo, monospace', fontSize: 15, lineHeight: 1.8 }}>
+                Login: {tempPw.phone || tempPw.email}
+                <br />
+                Password: <b>{tempPw.password}</b>
+              </div>
+            </>
+          )}
           <div className="row" style={{ justifyContent: 'flex-end', marginTop: 14 }}>
-            <button className="btn" onClick={() => navigator.clipboard?.writeText(`Login: ${tempPw.phone || tempPw.email}\nPassword: ${tempPw.password}`)}>
+            <button
+              className="btn"
+              onClick={() =>
+                navigator.clipboard?.writeText(tempPw.employeeId ? `Employee ID: ${tempPw.employeeId}\nPIN: ${tempPw.pin}` : `Login: ${tempPw.phone || tempPw.email}\nPassword: ${tempPw.password}`)
+              }
+            >
               Copy
             </button>
             <button className="btn primary" onClick={() => setTempPw(null)}>
@@ -304,32 +349,44 @@ export default function Users() {
       )}
 
       {form && (
-        <Modal title="Add staff account" onClose={() => setForm(null)}>
+        <Modal title={form.role === 'collector' ? 'Add driver' : 'Add staff account'} onClose={() => setForm(null)}>
           {err && <div className="error">{err}</div>}
           <div className="form-grid">
-            {[
-              ['name', 'Full name'],
-              ['phone', 'Mobile number'],
-              ['email', 'Email'],
-              ['password', 'Temporary password'],
-            ].map(([k, l]) => (
-              <label key={k} className="field">
-                {l}
-                <input className="input" type="text" value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
-              </label>
-            ))}
             <label className="field full">
               Role
               <select className="input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                <option value="collector">Collector (driver)</option>
-                <option value="recycler">Recycler</option>
+                <option value="collector">Driver (collector)</option>
+                <option value="recycler">Recycler partner</option>
                 <option value="admin">Admin</option>
               </select>
             </label>
+            {(form.role === 'collector'
+              ? [
+                  ['name', 'Full name', ''],
+                  ['employee_id', 'Employee ID', 'leave empty = auto (DRV006…)'],
+                  ['pin', '4-digit PIN', 'leave empty = random'],
+                  ['phone', 'Mobile number (optional)', ''],
+                ]
+              : [
+                  ['name', 'Full name', ''],
+                  ['phone', 'Mobile number', ''],
+                  ['email', 'Email', ''],
+                  ['password', 'Temporary password', ''],
+                ]
+            ).map(([k, l, ph]) => (
+              <label key={k} className="field">
+                {l}
+                <input className="input" type="text" placeholder={ph} value={form[k]} onChange={(e) => setForm({ ...form, [k]: e.target.value })} />
+              </label>
+            ))}
           </div>
-          <p className="faint">They log in with the mobile number or email and must change the temporary password on first login. Assign collectors a vehicle on the Fleet page.</p>
+          <p className="faint">
+            {form.role === 'collector'
+              ? 'Drivers log in to the Driver app with their employee ID and 4-digit PIN. Assign them a truck on the Fleet page.'
+              : 'They log in with the mobile number or email and must change the temporary password on first login.'}
+          </p>
           <div className="row" style={{ justifyContent: 'flex-end' }}>
-            <button className="btn primary" onClick={save}>
+            <button className="btn primary" onClick={save} disabled={!form.name || form.name.trim().length < 2}>
               Create
             </button>
           </div>

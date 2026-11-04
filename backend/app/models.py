@@ -38,6 +38,8 @@ class User(Base):
     approved: Mapped[bool | None] = mapped_column(default=True)          # recyclers wait for admin approval
     must_change_password: Mapped[bool | None] = mapped_column(default=False)  # staff created with a temp password
     language: Mapped[str | None] = mapped_column(String(5))
+    employee_id: Mapped[str | None] = mapped_column(String(20), index=True)  # drivers log in with this
+    pin_hash: Mapped[str | None] = mapped_column(String(255))  # + a 4-digit PIN
     created_at: Mapped[datetime] = mapped_column(DateTime, default=utcnow)
 
     requests: Mapped[list["PickupRequest"]] = relationship(back_populates="user", foreign_keys="PickupRequest.user_id")

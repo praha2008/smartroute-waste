@@ -16,6 +16,7 @@ export interface User {
   approved?: boolean | null;
   must_change_password?: boolean | null;
   language?: string | null;
+  employee_id?: string | null;
   is_active?: boolean;
   created_at: string;
 }

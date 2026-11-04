@@ -22,7 +22,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { haptic } from './haptics';
 import { t } from './i18n';
-import { useIsFocused, useNav } from './nav';
+import { useIsFocused, useNavMaybe } from './nav';
 import { colors, font, radius, shadow, shadowSoft, space } from './theme';
 
 export type IconName = keyof typeof Ionicons.glyphMap;
@@ -91,10 +91,10 @@ export function Screen({
 }
 
 function Header({ title, subtitle, back, right, top }: { title: string; subtitle?: string; back?: boolean; right?: React.ReactNode; top: number }) {
-  const nav = useNav();
+  const nav = useNavMaybe();
   return (
     <View style={[styles.header, { paddingTop: top + space.sm }]}>
-      {back && (
+      {back && nav && (
         <Pressable onPress={nav.pop} hitSlop={12} style={({ pressed }) => [styles.backBtn, pressed && { transform: [{ scale: 0.94 }] }]}>
           <Ionicons name="chevron-back" size={22} color={colors.text} />
         </Pressable>

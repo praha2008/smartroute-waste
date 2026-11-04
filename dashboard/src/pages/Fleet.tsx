@@ -131,7 +131,7 @@ export default function Fleet() {
                 <option value="">— none —</option>
                 {(drivers ?? []).map((d) => (
                   <option key={d.id} value={d.id}>
-                    {d.name} ({d.email})
+                    {d.name} ({d.employee_id ?? d.email})
                   </option>
                 ))}
               </select>

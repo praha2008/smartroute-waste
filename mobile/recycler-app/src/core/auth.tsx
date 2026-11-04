@@ -19,6 +19,8 @@ interface AuthState {
   user: User | null;
   /** identifier = mobile number or email. Throws ApiError; err.data.code === 'PHONE_NOT_VERIFIED' means show the OTP screen. */
   login: (identifier: string, password: string) => Promise<void>;
+  /** drivers: employee ID only */
+  driverLogin: (employeeId: string, pin: string) => Promise<void>;
   /** step 1 of sign-up: creates the account and sends an SMS code */
   register: (data: Record<string, unknown>) => Promise<CodeSent>;
   /** step 2: check the SMS code; logs the user in */
@@ -76,6 +78,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (identifier: string, password: string) => accept(await api.post('/auth/login', { email: identifier.trim(), password })),
     [accept],
   );
+  const driverLogin = useCallback(
+    async (employeeId: string, pin: string) => accept(await api.post('/auth/driver-login', { employee_id: employeeId.trim(), pin: pin.trim() })),
+    [accept],
+  );
   const register = useCallback((data: Record<string, unknown>) => api.post<CodeSent>('/auth/register', { ...data, role: APP.role }), []);
   const verifyPhone = useCallback(async (phone: string, code: string) => accept(await api.post('/auth/verify-phone', { phone, code })), [accept]);
   const resendCode = useCallback((phone: string) => api.post<CodeSent>('/auth/resend-code', { phone }), []);
@@ -100,8 +106,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const value = useMemo(
-    () => ({ ready, user, login, register, verifyPhone, resendCode, forgotPassword, resetPassword, changePassword, updateProfile, logout, refreshUser, setUser: setUserState }),
-    [ready, user, login, register, verifyPhone, resendCode, forgotPassword, resetPassword, changePassword, updateProfile, logout, refreshUser],
+    () => ({ ready, user, login, driverLogin, register, verifyPhone, resendCode, forgotPassword, resetPassword, changePassword, updateProfile, logout, refreshUser, setUser: setUserState }),
+    [ready, user, login, driverLogin, register, verifyPhone, resendCode, forgotPassword, resetPassword, changePassword, updateProfile, logout, refreshUser],
   );
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }

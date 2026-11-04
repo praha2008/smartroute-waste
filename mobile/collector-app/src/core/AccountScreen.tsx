@@ -60,8 +60,9 @@ export default function AccountScreen({ children }: { children?: React.ReactNode
       }
     >
       <Card style={{ padding: 0 }}>
+        {user.employee_id ? <ListRow icon="id-card-outline" title={user.employee_id} subtitle={t('drv.empId')} /> : null}
         <ListRow icon="call-outline" title={user.phone || '—'} subtitle={t('acct.phone')} />
-        <ListRow icon="mail-outline" title={user.email} subtitle={t('acct.email')} />
+        {!user.email.endsWith('.local') ? <ListRow icon="mail-outline" title={user.email} subtitle={t('acct.email')} /> : null}
         {user.ward ? <ListRow icon="business-outline" title={user.ward} subtitle={t('acct.ward')} /> : null}
         {user.address ? <ListRow icon="home-outline" title={user.address} subtitle={t('acct.address')} last /> : null}
       </Card>
@@ -82,7 +83,7 @@ export default function AccountScreen({ children }: { children?: React.ReactNode
       <Section title={t('acct.title')}>
         <Card style={{ padding: 0 }}>
           <ListRow icon="create-outline" title={t('acct.editProfile')} onPress={() => setEdit(true)} />
-          <ListRow icon="key-outline" title={t('acct.changePassword')} onPress={() => setPw(true)} />
+          {user.role !== 'collector' && <ListRow icon="key-outline" title={t('acct.changePassword')} onPress={() => setPw(true)} />}
           <ListRow
             icon="information-circle-outline"
             title={t('acct.about')}

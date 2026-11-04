@@ -45,6 +45,11 @@ export function useNav() {
   return ctx;
 }
 
+/** Like useNav, but returns null outside the Navigator (e.g. login / forced-password screens). */
+export function useNavMaybe(): NavApi | null {
+  return useContext(NavContext);
+}
+
 /** Runs `effect` every time the screen comes to the front (like react-navigation's useFocusEffect). */
 export function useFocusEffect(effect: () => void | (() => void)) {
   const focused = useContext(FocusContext);

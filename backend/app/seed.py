@@ -92,6 +92,33 @@ def new_request(user: User, wt: str, urg: str, kg: float, created: datetime, lat
     return r
 
 
+def next_employee_id(db) -> str:
+    """DRV001, DRV002, ... (first free number)."""
+    used = {u.employee_id for u in db.query(User).filter(User.employee_id.isnot(None)).all()}
+    n = 1
+    while f"DRV{n:03d}" in used:
+        n += 1
+    return f"DRV{n:03d}"
+
+
+def ensure_employee_ids(db) -> None:
+    """Drivers created before employee-ID login existed get one, and never need a password change."""
+    changed = False
+    for u in db.query(User).filter(User.role == "collector").order_by(User.id).all():
+        if not u.employee_id:
+            u.employee_id = next_employee_id(db)
+            db.flush()
+            changed = True
+        if u.must_change_password:
+            u.must_change_password = False
+            changed = True
+        if not u.pin_hash and u.email.startswith("driver") and u.email.endswith("@smartroute.in"):
+            u.pin_hash = hash_password("1234")  # demo drivers; real drivers get a PIN from the dashboard
+            changed = True
+    if changed:
+        db.commit()
+
+
 def ensure_admin(db) -> User | None:
     """Create the real admin from ADMIN_EMAIL / ADMIN_PASSWORD (Render environment) if it doesn't exist."""
     from .config import ADMIN_EMAIL, ADMIN_NAME, ADMIN_PASSWORD, ADMIN_PHONE
@@ -141,6 +168,7 @@ def seed(reset: bool, mode: str = "clean") -> None:
         db.close()
         return
     pw = {k: hash_password(f"{k}123") for k in ("admin", "driver", "citizen", "recycler")}
+    pw["pin"] = hash_password("1234")  # demo drivers DRV001-DRV005 / PIN 1234
     now = utcnow()
     today_ist = (now + IST).replace(hour=0, minute=0, second=0, microsecond=0)
 
@@ -148,7 +176,8 @@ def seed(reset: bool, mode: str = "clean") -> None:
     db.add(User(name="Municipal Admin", email="admin@smartroute.in", role="admin", password_hash=pw["admin"], phone="+919000000001", phone_verified=True))
     drivers = []
     for i, nm in enumerate(["Ravi Shankar", "Muthu Kumar", "Senthil Nathan", "Babu Raj", "Selva Ganesh"], start=1):
-        d = User(name=nm, email=f"driver{i}@smartroute.in", role="collector", password_hash=pw["driver"], phone=f"+9190000001{i:02d}", phone_verified=True)
+        d = User(name=nm, email=f"driver{i}@smartroute.in", role="collector", password_hash=pw["driver"], phone=f"+9190000001{i:02d}",
+                 phone_verified=True, employee_id=f"DRV{i:03d}", pin_hash=pw["pin"])
         drivers.append(d)
         db.add(d)
     dlat, dlng = DEFAULT_DEPOT

@@ -104,6 +104,7 @@ function Onboarding({ onDone }: { onDone: () => void }) {
         data={slides}
         horizontal
         pagingEnabled
+        getItemLayout={(_d: any, i: number) => ({ length: W, offset: W * i, index: i })}
         showsHorizontalScrollIndicator={false}
         onMomentumScrollEnd={(e) => setPage(Math.round(e.nativeEvent.contentOffset.x / W))}
         renderItem={({ item }) => (
@@ -231,6 +232,7 @@ export default function AuthFlow({ RegisterExtra }: { RegisterExtra?: React.Comp
     case 'forgot':
       return <ForgotScreen onBack={() => setStep({ name: 'login' })} />;
     default:
+      if ((APP.role as string) === 'collector') return <DriverLoginScreen demo={demo} />;
       return (
         <LoginScreen
           demo={demo}
@@ -332,6 +334,117 @@ function LoginScreen({ demo, onRegister, onForgot, onNeedOtp }: { demo: boolean;
         <Card flat style={{ marginTop: space.md }}>
           <Input label={t('server.address')} icon="server-outline" value={server} onChangeText={setServer} autoCapitalize="none" placeholder="https://smartroute-api.onrender.com" />
           <Text style={[font.small, { marginBottom: space.md }]}>{t('server.hint')}</Text>
+          <Button
+            title={t('server.testSave')}
+            small
+            onPress={async () => {
+              setServerOk(null);
+              const ok = await api.ping(server);
+              setServerOk(ok);
+              if (ok) {
+                await setServerUrl(server);
+                setShowServer(false);
+              }
+            }}
+          />
+        </Card>
+      )}
+    </AuthShell>
+  );
+}
+
+/* ================================================================== driver login */
+function DriverLoginScreen({ demo }: { demo: boolean }) {
+  const { driverLogin } = useAuth();
+  const [emp, setEmp] = useState('');
+  const [pin, setPin] = useState('');
+  const [error, setError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [showServer, setShowServer] = useState(false);
+  const [server, setServer] = useState(getServerUrl());
+  const [serverOk, setServerOk] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    api.ping(getServerUrl()).then(setServerOk);
+  }, []);
+
+  const submit = async () => {
+    setError(null);
+    if (!emp.trim()) return setError(t('drv.enter'));
+    if (!/^\d{4}$/.test(pin)) return setError(t('drv.enterPin'));
+    setBusy(true);
+    try {
+      await driverLogin(emp, pin);
+      haptic.success();
+    } catch (e: any) {
+      haptic.error();
+      setError(e.message);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <AuthShell title={t('drv.title')} subtitle={t('drv.subtitle')} onLogoLongPress={() => setShowServer(true)}>
+      <Input
+        label={t('drv.empId')}
+        icon="id-card-outline"
+        value={emp}
+        onChangeText={(v) => setEmp(v.toUpperCase())}
+        autoCapitalize="characters"
+        autoCorrect={false}
+        placeholder="DRV001"
+        hint={t('drv.hint')}
+        returnKeyType="next"
+        style={{ fontSize: 20, fontWeight: '700', letterSpacing: 2 }}
+      />
+      <Input
+        label={t('drv.pin')}
+        icon="keypad-outline"
+        value={pin}
+        onChangeText={(v) => setPin(v.replace(/[^0-9]/g, '').slice(0, 4))}
+        keyboardType="number-pad"
+        maxLength={4}
+        secureTextEntry
+        placeholder="••••"
+        hint={t('drv.pinHint')}
+        onSubmitEditing={() => submit()}
+        style={{ fontSize: 20, fontWeight: '700', letterSpacing: 6 }}
+      />
+      {error && <ErrorBox message={error} />}
+      <Button title={t('auth.login')} iconRight="arrow-forward" onPress={() => submit()} loading={busy} />
+      <Text style={[font.small, { textAlign: 'center', marginTop: space.xl }]}>{t('drv.noAccount')}</Text>
+      <Text style={[font.small, { textAlign: 'center', marginTop: space.xs }]}>{t('drv.forgotPin')}</Text>
+
+      {demo && (
+        <Pressable
+          onPress={() => {
+            haptic.tap();
+            setEmp('DRV001');
+            setPin('1234');
+          }}
+          style={styles.demo}
+        >
+          <Ionicons name="flask-outline" size={18} color={colors.accentDark} />
+          <Text style={{ color: colors.accentDark, fontWeight: '800', fontSize: 13, flex: 1 }}>
+            {t('auth.demo')}: DRV001 / PIN 1234 · {t('auth.tapToFill')}
+          </Text>
+        </Pressable>
+      )}
+
+      {(serverOk === false || showServer) && (
+        <Pressable onPress={() => setShowServer((s) => !s)} style={{ marginTop: space.lg }}>
+          <Row style={{ justifyContent: 'center' }}>
+            <View style={[styles.dot, { backgroundColor: serverOk === null ? colors.textFaint : serverOk ? colors.success : colors.danger }]} />
+            <Text style={font.small} numberOfLines={1}>
+              {t('server.label')}: {getServerUrl()} {serverOk === false ? `(${t('server.unreachable')})` : ''}
+            </Text>
+          </Row>
+        </Pressable>
+      )}
+      {showServer && (
+        <Card flat style={{ marginTop: space.md }}>
+          <Input label={t('server.address')} icon="server-outline" value={server} onChangeText={setServer} autoCapitalize="none" />
           <Button
             title={t('server.testSave')}
             small

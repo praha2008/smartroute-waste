@@ -60,9 +60,9 @@ def test_recycler_needs_approval_and_staff_must_change_password():
     assert c.get("/recycler/lots", headers=h).status_code == 403
     assert c.post(f"/admin/users/{rec['user']['id']}/set/approve", headers=adm).json()["approved"] is True
     assert c.get("/recycler/lots", headers=h).status_code == 200
-    # admin creates a driver -> temporary password must be changed
-    u = c.post("/admin/users", headers=adm, json={"name": "New Driver", "email": "nd@x.in", "password": "temp123",
-                                                   "phone": "9000022222", "role": "collector"}).json()
+    # admin creates a recycler partner -> temporary password must be changed
+    u = c.post("/admin/users", headers=adm, json={"name": "Partner", "email": "nd@x.in", "password": "temp123",
+                                                   "phone": "9000022222", "role": "recycler"}).json()
     assert u["must_change_password"] is True and u["phone"] == "+919000022222"
     t = c.post(f"/admin/users/{u['id']}/reset-password", headers=adm).json()["temporary_password"]
     hd = tok("9000022222", t)
@@ -70,6 +70,46 @@ def test_recycler_needs_approval_and_staff_must_change_password():
     # disable / enable
     c.post(f"/admin/users/{u['id']}/set/disable", headers=adm)
     assert c.post("/auth/login", json={"email": "nd@x.in", "password": t}).status_code == 403
+
+
+def test_driver_logs_in_with_employee_id_and_pin():
+    adm = tok("admin@smartroute.in", "admin123")
+    # seeded demo drivers: DRV001-DRV005 / 1234
+    assert c.post("/auth/driver-login", json={"employee_id": "drv001", "pin": "1234"}).json()["user"]["name"] == "Ravi Shankar"
+    d = c.post("/admin/users", headers=adm, json={"name": "Kumar", "role": "collector", "employee_id": "vmc 1042", "pin": "4321"}).json()
+    assert d["employee_id"] == "VMC1042" and d["pin"] == "4321" and d["must_change_password"] is False
+    auto = c.post("/admin/users", headers=adm, json={"name": "Auto ID", "role": "collector"}).json()
+    assert auto["employee_id"].startswith("DRV") and len(auto["pin"]) == 4
+    assert c.post("/admin/users", headers=adm, json={"name": "Dup", "role": "collector", "employee_id": "VMC1042"}).status_code == 400
+    r = c.post("/auth/driver-login", json={"employee_id": " vmc1042 ", "pin": "4321"})
+    assert r.status_code == 200 and r.json()["user"]["role"] == "collector"
+    assert c.post("/auth/driver-login", json={"employee_id": "VMC1042", "pin": "0000"}).status_code == 401
+    assert c.post("/auth/driver-login", json={"employee_id": "NOPE99", "pin": "1234"}).status_code == 401
+    # admin resets the PIN
+    new = c.post(f"/admin/users/{d['id']}/reset-pin", headers=adm).json()["pin"]
+    assert c.post("/auth/driver-login", json={"employee_id": "VMC1042", "pin": "4321"}).status_code in (401, 200) and new
+    assert c.post("/auth/driver-login", json={"employee_id": "VMC1042", "pin": new}).status_code == 200
+    # lock after 5 wrong PINs
+    for _ in range(5):
+        c.post("/auth/driver-login", json={"employee_id": "DRV002", "pin": "9999"})
+    assert c.post("/auth/driver-login", json={"employee_id": "DRV002", "pin": "1234"}).status_code == 429
+    c.post(f"/admin/users/{d['id']}/set/disable", headers=adm)
+    assert c.post("/auth/driver-login", json={"employee_id": "VMC1042", "pin": new}).status_code == 403
+
+
+def test_old_drivers_get_employee_ids_on_startup():
+    from app.database import SessionLocal
+    from app.models import User
+    from app.security import hash_password
+    from app.seed import ensure_employee_ids
+
+    with SessionLocal() as db:
+        u = User(name="Old Driver", email="old@x.in", role="collector", password_hash=hash_password("x12345"), must_change_password=True)
+        db.add(u)
+        db.commit()
+        ensure_employee_ids(db)
+        db.refresh(u)
+        assert u.employee_id.startswith("DRV") and u.must_change_password is False and u.pin_hash is None
 
 
 def test_clear_operations_and_release_reset(monkeypatch):

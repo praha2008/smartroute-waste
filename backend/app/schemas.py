@@ -87,6 +87,7 @@ class UserOut(ORM):
     approved: bool | None = None
     must_change_password: bool | None = None
     language: str | None = None
+    employee_id: str | None = None
     is_active: bool = True
     created_at: UTC
 
@@ -107,11 +108,19 @@ class ProfileUpdate(BaseModel):
 
 
 class StaffCreate(BaseModel):
-    name: str
-    email: str
-    password: str = Field(min_length=6)
-    phone: str | None = None
+    name: str = Field(min_length=2, max_length=120)
     role: Literal["collector", "admin", "recycler", "citizen"] = "collector"
+    # drivers: name + employee ID (auto-generated if empty); others: email + temporary password
+    employee_id: str | None = Field(None, max_length=20)
+    pin: str | None = Field(None, pattern=r"^\d{4}$")  # drivers: empty = random
+    email: str | None = None
+    password: str | None = None
+    phone: str | None = None
+
+
+class DriverLoginIn(BaseModel):
+    employee_id: str = Field(min_length=2, max_length=20)
+    pin: str = Field(min_length=4, max_length=4)
 
 
 # ---------------------------------------------------------------- requests
