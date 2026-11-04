@@ -109,16 +109,45 @@ def search(q: str = Query(..., min_length=2, max_length=120), lat: float | None 
     params = {"q": q, "limit": limit, "lat": f"{clat:.5f}", "lon": f"{clng:.5f}", "lang": "en",
               # roughly Tamil Nadu + neighbours, so "Gandhi Nagar" finds the Vellore one first
               "bbox": "75.5,8.0,81.0,14.5"}
+    out: list[dict] = []
+    errors = []
     try:
         data = _get("https://photon.komoot.io/api/?" + urllib.parse.urlencode(params))
-    except Exception:
-        return {"results": [], "error": "Place search is unavailable right now"}
+        for f in data.get("features", []):
+            lng_, lat_ = f["geometry"]["coordinates"]
+            title, sub = _label(f.get("properties", {}))
+            out.append({"title": title, "subtitle": sub, "lat": lat_, "lng": lng_})
+    except Exception as e:  # Photon down / blocking cloud servers
+        errors.append(f"photon: {e}")
+    if not out:
+        try:
+            out = _nominatim_search(q, clat, clng, limit)
+        except Exception as e:
+            errors.append(f"nominatim: {e}")
+    if out:
+        return {"results": out, "provider": "osm"}
+    return {"results": [], "error": "Place search is unavailable right now" if errors else None, "detail": errors}
+
+
+def _nominatim_search(q: str, lat: float, lng: float, limit: int) -> list[dict]:
+    """Backup search (OpenStreetMap's own geocoder), biased to ~30 km around the user."""
+    d = 0.3
+    data = _get("https://nominatim.openstreetmap.org/search?" + urllib.parse.urlencode({
+        "q": q, "format": "jsonv2", "addressdetails": 1, "limit": limit, "countrycodes": "in",
+        "viewbox": f"{lng - d:.4f},{lat + d:.4f},{lng + d:.4f},{lat - d:.4f}", "bounded": 0, "accept-language": "en"}))
     out = []
-    for f in data.get("features", []):
-        lng_, lat_ = f["geometry"]["coordinates"]
-        title, sub = _label(f.get("properties", {}))
-        out.append({"title": title, "subtitle": sub, "lat": lat_, "lng": lng_})
-    return {"results": out}
+    for r in data if isinstance(data, list) else []:
+        a = r.get("address", {})
+        title = r.get("name") or (r.get("display_name", "").split(",")[0]) or "Location"
+        parts = [a.get("road"), a.get("suburb") or a.get("neighbourhood"), a.get("city") or a.get("town") or a.get("village"),
+                 a.get("state_district"), a.get("state")]
+        seen, sub = set(), []
+        for x in parts:
+            if x and x not in seen and x != title:
+                seen.add(x)
+                sub.append(x)
+        out.append({"title": title, "subtitle": ", ".join(sub[:3]), "lat": float(r["lat"]), "lng": float(r["lon"])})
+    return out
 
 
 @router.get("/place")

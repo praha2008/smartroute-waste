@@ -241,3 +241,19 @@ def test_sms_falls_back_to_screen_code_when_twilio_refuses(monkeypatch):
     assert r["demo"] is True and r["fallback"] is True and len(r["dev_code"]) == 6
     ok = c.post("/auth/verify-phone", json={"phone": "9822233344", "code": r["dev_code"]})
     assert ok.status_code == 200, ok.text
+
+
+def test_search_falls_back_to_nominatim_when_photon_fails(monkeypatch):
+    from app import config
+    from app.routers import geo
+
+    monkeypatch.setattr(config, "GOOGLE_MAPS_API_KEY", "")
+    def fake(url):
+        if "photon" in url:
+            raise OSError("403 Forbidden")
+        return [{"lat": "12.9692", "lon": "79.1559", "name": "VIT Vellore", "display_name": "VIT Vellore, Katpadi",
+                 "address": {"road": "Katpadi Road", "suburb": "Katpadi", "city": "Vellore", "state": "Tamil Nadu"}}]
+    monkeypatch.setattr(geo, "_get", fake)
+    r = c.get("/geo/search?q=vit").json()
+    assert r["results"][0]["title"] == "VIT Vellore" and r["results"][0]["lat"] == 12.9692
+    assert r["results"][0]["subtitle"] == "Katpadi Road, Katpadi, Vellore"
