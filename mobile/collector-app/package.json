@@ -29,7 +29,8 @@
     "expo-image-manipulator": "~58.0.16",
     "expo-linear-gradient": "~58.0.3",
     "expo-localization": "~58.0.5",
-    "expo-splash-screen": "~58.0.13"
+    "expo-splash-screen": "~58.0.13",
+    "react-native-maps": "1.29.11"
   },
   "devDependencies": {
     "@types/react": "~19.3.0",

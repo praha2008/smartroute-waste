@@ -13,7 +13,7 @@ import { StatusBar } from 'expo-status-bar';
 
 import { api } from './api';
 import { getCurrentLocation } from './device';
-import { t } from './i18n';
+import { getLang, t } from './i18n';
 import MapView, { MapHandle } from './MapView';
 import { colors, font, radius, shadow, space } from './theme';
 import { haptic } from './haptics';
@@ -31,9 +31,12 @@ export interface PickedLocation {
 interface Suggestion {
   title: string;
   subtitle: string;
-  lat: number;
-  lng: number;
+  lat?: number; // free (OpenStreetMap) search returns coordinates directly
+  lng?: number;
+  place_id?: string; // Google search: coordinates are fetched when the user picks it
 }
+
+const newSession = () => `${Date.now().toString(36)}${Math.random().toString(36).slice(2, 10)}`;
 
 interface Props {
   visible: boolean;
@@ -65,11 +68,15 @@ function PickerBody({ initial, title, onClose, onConfirm }: Props) {
   const [locating, setLocating] = useState(false);
   const lift = useRef(new Animated.Value(0)).current;
   const reqId = useRef(0);
+  const revId = useRef(0);
+  const touched = useRef(false); // user moved the map / picked a result: never auto-jump to GPS after that
+  const keepAddr = useRef(false); // just picked a search result: keep its name instead of reverse-geocoding
+  const session = useRef(newSession());
   const startCenter = useRef<[number, number]>(initial ? [initial.lat, initial.lng] : VELLORE).current;
 
   // if no starting point was given, jump to the phone's location
   useEffect(() => {
-    if (!initial) locate(false);
+    if (!initial) locate(false, true);
     else resolve(initial.lat, initial.lng);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -86,7 +93,7 @@ function PickerBody({ initial, title, onClose, onConfirm }: Props) {
     const id = ++reqId.current;
     const timer = setTimeout(async () => {
       try {
-        const r = await api.get<{ results: Suggestion[] }>(`/geo/search?q=${encodeURIComponent(q)}&lat=${center.lat}&lng=${center.lng}&limit=8`);
+        const r = await api.get<{ results: Suggestion[] }>(`/geo/search?q=${encodeURIComponent(q)}&lat=${center.lat}&lng=${center.lng}&limit=8&session=${session.current}&lang=${getLang()}`);
         if (id === reqId.current) setResults(r.results ?? []);
       } catch {
         if (id === reqId.current) setResults([]);
@@ -101,21 +108,24 @@ function PickerBody({ initial, title, onClose, onConfirm }: Props) {
   const animatePin = (up: boolean) => Animated.spring(lift, { toValue: up ? 1 : 0, useNativeDriver: true, speed: 30, bounciness: up ? 0 : 10 }).start();
 
   async function resolve(lat: number, lng: number) {
+    const id = ++revId.current;
     setResolving(true);
     try {
-      const r = await api.get<{ title: string; subtitle: string }>(`/geo/reverse?lat=${lat}&lng=${lng}`);
-      setAddr({ title: r.title, subtitle: r.subtitle });
+      const r = await api.get<{ title: string; subtitle: string }>(`/geo/reverse?lat=${lat}&lng=${lng}&lang=${getLang()}`);
+      if (id === revId.current) setAddr({ title: r.title, subtitle: r.subtitle });
     } catch {
-      setAddr({ title: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, subtitle: '' });
+      if (id === revId.current) setAddr({ title: `${lat.toFixed(5)}, ${lng.toFixed(5)}`, subtitle: '' });
     } finally {
-      setResolving(false);
+      if (id === revId.current) setResolving(false);
     }
   }
 
-  async function locate(showAlert = true) {
+  /** auto = the silent jump when the picker opens; skipped if the user already moved the map */
+  async function locate(showAlert = true, auto = false) {
     setLocating(true);
     const p = await getCurrentLocation(showAlert);
     setLocating(false);
+    if (auto && touched.current) return;
     if (p) {
       map.current?.flyTo(p.lat, p.lng, 17);
       haptic.tap();
@@ -124,14 +134,39 @@ function PickerBody({ initial, title, onClose, onConfirm }: Props) {
     }
   }
 
-  function choose(s: Suggestion) {
+  async function choose(s: Suggestion) {
+    touched.current = true;
     Keyboard.dismiss();
     setSearchOpen(false);
     setQuery('');
     setResults([]);
-    setAddr({ title: s.title, subtitle: s.subtitle });
-    map.current?.flyTo(s.lat, s.lng, 17);
     haptic.tap();
+    let lat = s.lat;
+    let lng = s.lng;
+    let title = s.title;
+    let subtitle = s.subtitle;
+    if ((lat == null || lng == null) && s.place_id) {
+      setResolving(true);
+      try {
+        const d = await api.get<{ lat: number; lng: number; title: string; subtitle: string }>(
+          `/geo/place?id=${encodeURIComponent(s.place_id)}&session=${session.current}&lang=${getLang()}`,
+        );
+        lat = d.lat;
+        lng = d.lng;
+        title = s.title || d.title;
+        subtitle = s.subtitle || d.subtitle;
+      } catch {
+        setResolving(false);
+        return;
+      }
+      session.current = newSession(); // one Google billing session per search
+    }
+    if (lat == null || lng == null) return;
+    revId.current++; // ignore any reverse lookup still in flight
+    setResolving(false);
+    keepAddr.current = true;
+    setAddr({ title, subtitle });
+    map.current?.flyTo(lat, lng, 17);
   }
 
   const pinY = lift.interpolate({ inputRange: [0, 1], outputRange: [0, -14] });
@@ -149,7 +184,10 @@ function PickerBody({ initial, title, onClose, onConfirm }: Props) {
         center={startCenter}
         zoom={initial ? 17 : 14}
         style={StyleSheet.absoluteFill as any}
+        showUser
         onMoveStart={() => {
+          touched.current = true;
+          keepAddr.current = false;
           setMoving(true);
           animatePin(true);
           if (searchOpen) {
@@ -161,7 +199,8 @@ function PickerBody({ initial, title, onClose, onConfirm }: Props) {
           setMoving(false);
           animatePin(false);
           setCenter({ lat, lng });
-          resolve(lat, lng);
+          if (keepAddr.current) keepAddr.current = false;
+          else resolve(lat, lng);
         }}
       />
 
@@ -244,7 +283,7 @@ function PickerBody({ initial, title, onClose, onConfirm }: Props) {
       </View>
 
       {/* my-location button */}
-      <Pressable onPress={() => locate(true)} style={[styles.locBtn, { bottom: 210 + insets.bottom }]}>
+      <Pressable onPress={() => { touched.current = true; keepAddr.current = false; locate(true); }} style={[styles.locBtn, { bottom: 210 + insets.bottom }]}>
         {locating ? <ActivityIndicator color={colors.accent} /> : <Ionicons name="locate" size={22} color={colors.accentDark} />}
       </Pressable>
 

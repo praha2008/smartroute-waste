@@ -156,3 +156,31 @@ def test_ward_is_filled_from_the_map_location():
     code = r.json()["dev_code"]
     user = c.post("/auth/verify-phone", json={"phone": "9811122233", "code": code}).json()["user"]
     assert user["ward"] == "Katpadi"
+
+
+def test_google_places_search_details_and_reverse(monkeypatch):
+    from app import config
+    from app.routers import geo
+
+    monkeypatch.setattr(config, "GOOGLE_MAPS_API_KEY", "test-key")
+    calls = []
+
+    def fake(method, url, body=None, field_mask=None):
+        calls.append((method, url, body, field_mask))
+        if "autocomplete" in url:
+            return {"suggestions": [{"placePrediction": {"placeId": "ChIJabc", "text": {"text": "VIT, Katpadi"},
+                    "structuredFormat": {"mainText": {"text": "VIT Vellore"}, "secondaryText": {"text": "Katpadi, Vellore, Tamil Nadu, India"}}}}]}
+        if "places/ChIJabc" in url:
+            return {"location": {"latitude": 12.9692, "longitude": 79.1559}, "displayName": {"text": "VIT Vellore"},
+                    "formattedAddress": "Katpadi, Vellore, Tamil Nadu 632014, India"}
+        return {"results": [{"types": ["plus_code"], "formatted_address": "X"},
+                            {"types": ["street_address"], "formatted_address": "12, Gandhi Rd, Katpadi, Vellore, Tamil Nadu 632007, India"}]}
+    monkeypatch.setattr(geo, "_google", fake)
+    r = c.get("/geo/search?q=vit&session=s1").json()
+    assert r["provider"] == "google" and r["results"][0] == {"title": "VIT Vellore", "subtitle": "Katpadi, Vellore, Tamil Nadu", "place_id": "ChIJabc"}
+    assert calls[0][2]["sessionToken"] == "s1" and calls[0][2]["includedRegionCodes"] == ["in"]
+    p = c.get("/geo/place?id=ChIJabc&session=s1").json()
+    assert p["lat"] == 12.9692 and p["title"] == "VIT Vellore" and "sessionToken=s1" in calls[1][1]
+    rev = c.get("/geo/reverse?lat=12.97&lng=79.15").json()
+    assert rev["title"] == "12, Gandhi Rd" and rev["subtitle"].startswith("Katpadi, Vellore")
+    assert c.get("/geo/provider").json()["provider"] == "google"

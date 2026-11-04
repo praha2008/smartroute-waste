@@ -30,10 +30,22 @@ git commit -m "v2: maps, phone OTP, Tamil, new UI"
 git push
 ```
 
+## 1b. Google Maps (the apps use the real Google Maps SDK)
+
+In Expo Go the maps already work with no key. For the APKs and for Google place search, set up Google Cloud once:
+
+1. Open **console.cloud.google.com**, create a project called "SmartRoute", and link a billing account. Google asks for a card, but a student demo stays far inside the free monthly usage. To be safe, add a **budget alert** (Billing → Budgets → ₹100).
+2. Under **APIs & Services → Library**, enable **Maps SDK for Android**, **Places API (New)** and **Geocoding API**.
+3. Under **APIs & Services → Credentials**, create **two API keys**:
+   - **Android key.** API restrictions: *Maps SDK for Android* only. In VS Code run `cd mobile` and then `node set-maps-key.js AIzaSy...your-android-key`. This puts it in all 3 apps.
+   - **Server key.** API restrictions: *Places API (New)* and *Geocoding API*. Put it on Render as `GOOGLE_MAPS_API_KEY`. It stays on the server and never goes inside the apps.
+4. Without the server key, search still works using free OpenStreetMap data, just less complete than Google.
+
 ## 2. Render environment variables (api service → Environment)
 
 | Variable | What to put | Needed? |
 |---|---|---|
+| `GOOGLE_MAPS_API_KEY` | Server key from 1b (Google search + address under the pin) | recommended |
 | `APP_MODE` | `release` for the final project (no demo logins on screen, reset only to admin + fleet). `demo` while practising | yes |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_PHONE` / `ADMIN_NAME` | Your real admin login. **Set it here only, never in code.** | yes |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SID` | Real SMS codes (see 3) | optional |

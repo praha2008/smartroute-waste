@@ -54,6 +54,12 @@
           "image": "./assets/adaptive-icon.png",
           "imageWidth": 160
         }
+      ],
+      [
+        "react-native-maps",
+        {
+          "androidGoogleMapsApiKey": "PASTE_ANDROID_MAPS_KEY"
+        }
       ]
     ],
     "icon": "./assets/icon.png",

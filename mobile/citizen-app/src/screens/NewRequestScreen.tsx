@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { api } from '../core/api';
@@ -48,6 +48,7 @@ export default function NewRequestScreen() {
   const [picker, setPicker] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [ai, setAi] = useState<AiResult | null>(null);
+  const picked = useRef(false);
   const [aiBusy, setAiBusy] = useState(false);
 
   /** Pick a photo and ask the AI model which waste type it shows (silently skipped if the model is not installed). */
@@ -73,9 +74,10 @@ export default function NewRequestScreen() {
   useEffect(() => {
     if (loc) return;
     getCurrentLocation(false).then((p) => {
-      if (p) {
-        setLoc(p);
-        setPlaceTitle(t('loc.current'));
+      // only fill in if the user hasn't picked a place in the meantime
+      if (p && !picked.current) {
+        setLoc((cur) => cur ?? p);
+        setPlaceTitle((cur) => cur ?? t('loc.current'));
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -235,7 +237,7 @@ export default function NewRequestScreen() {
         <Pressable onPress={() => setPicker(true)} style={styles.locCard}>
           {loc ? (
             <View pointerEvents="none">
-              <MapView center={[loc.lat, loc.lng]} zoom={16} markers={markers} fit={false} height={140} rounded={false} interactive={false} />
+              <MapView key={`${loc.lat.toFixed(5)},${loc.lng.toFixed(5)}`} center={[loc.lat, loc.lng]} zoom={16} markers={markers} fit={false} height={140} rounded={false} interactive={false} />
             </View>
           ) : null}
           <Row style={{ padding: space.md }} gap={space.md}>
@@ -269,6 +271,7 @@ export default function NewRequestScreen() {
         initial={loc}
         onClose={() => setPicker(false)}
         onConfirm={(p) => {
+          picked.current = true;
           setPicker(false);
           setLoc({ lat: p.lat, lng: p.lng });
           setPlaceTitle(p.title ?? null);
