@@ -98,4 +98,4 @@ To share with your guide or friends, send them the build link. Anyone with an An
 - **App says "Cannot reach server":** the server may be waking up, so wait a minute and retry. Or open `<url>/docs` in a browser to check it's live.
 - **Render build failed:** open the service → **Logs** and send the red lines to Claude.
 - **EAS build failed:** open the build page link → the failed step → copy the error.
-- **Reset the demo data:** in Neon, open SQL Editor and run `DROP SCHEMA public CASCADE; CREATE SCHEMA public;`, then in Render click **Manual Deploy → Restart service**.
+- **Reset the demo data:** Dashboard → **Users** → **Reset demo data** (type RESET).

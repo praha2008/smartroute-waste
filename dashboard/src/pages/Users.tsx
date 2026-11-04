@@ -1,6 +1,6 @@
 import { useState } from 'react';
 
-import { api } from '../api';
+import { api, setToken } from '../api';
 import { dt } from '../meta';
 import { Icon, Modal, PageHead, useData } from '../ui';
 
@@ -16,6 +16,23 @@ export default function Users() {
   const { data, error, reload } = useData<any[]>(`/admin/users?role=${role}`);
   const [form, setForm] = useState<any | null>(null);
   const [err, setErr] = useState<string | null>(null);
+  const [resetOpen, setResetOpen] = useState(false);
+  const [confirmText, setConfirmText] = useState('');
+  const [resetting, setResetting] = useState(false);
+
+  const resetDemo = async () => {
+    setResetting(true);
+    setErr(null);
+    try {
+      await api.post('/admin/reset-demo?confirm=RESET');
+      setToken(null);
+      window.location.hash = '#/overview';
+      window.location.reload();
+    } catch (e: any) {
+      setErr(e.message);
+      setResetting(false);
+    }
+  };
 
   const save = async () => {
     setErr(null);
@@ -32,6 +49,9 @@ export default function Users() {
   return (
     <>
       <PageHead title="Users" sub="Waste generators, collection staff and recycling partners">
+        <button className="btn danger" onClick={() => { setConfirmText(''); setErr(null); setResetOpen(true); }}>
+          Reset demo data
+        </button>
         <button className="btn primary" onClick={() => setForm({ name: '', email: '', phone: '', password: '', role: 'collector' })}>
           <Icon name="plus" /> Add staff account
         </button>
@@ -77,6 +97,28 @@ export default function Users() {
           </tbody>
         </table>
       </div>
+      {resetOpen && (
+        <Modal title="Reset demo data" onClose={() => !resetting && setResetOpen(false)}>
+          {err && <div className="error">{err}</div>}
+          <p style={{ marginTop: 0 }}>
+            This <b>deletes everything</b> (requests, routes, users, photos) and loads a fresh Vellore demo: 30 days of history and
+            38 open requests covering every case (dense communities, isolated, urgent, overdue, skipped). Everyone on every app
+            will be logged out.
+          </p>
+          <label className="field">
+            Type RESET to confirm
+            <input className="input" value={confirmText} onChange={(e) => setConfirmText(e.target.value)} autoFocus />
+          </label>
+          <div className="row" style={{ justifyContent: 'flex-end', marginTop: 16 }}>
+            <button className="btn" onClick={() => setResetOpen(false)} disabled={resetting}>
+              Cancel
+            </button>
+            <button className="btn primary" style={{ background: 'var(--bad)', borderColor: 'var(--bad)' }} disabled={confirmText !== 'RESET' || resetting} onClick={resetDemo}>
+              {resetting ? 'Resetting…' : 'Delete everything & reload demo'}
+            </button>
+          </div>
+        </Modal>
+      )}
       {form && (
         <Modal title="Add staff account" onClose={() => setForm(null)}>
           {err && <div className="error">{err}</div>}

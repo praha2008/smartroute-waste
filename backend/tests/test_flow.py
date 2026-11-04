@@ -116,3 +116,17 @@ def test_capacity_and_compatibility():
         allowed = rt["vehicle"]["allowed_types"].split(",")
         assert sum(s["request"]["est_kg"] for s in rt["stops"]) <= rt["vehicle"]["capacity_kg"]
         assert all(s["request"]["waste_type"] in allowed for s in rt["stops"])
+
+
+def test_reset_demo_logs_everyone_out():
+    adm = login("admin@smartroute.in", "admin123")
+    cit = login("citizen@smartroute.in", "citizen123")
+    assert client.post("/admin/reset-demo?confirm=nope", headers=adm).status_code == 400
+    assert client.post("/admin/reset-demo", headers=cit, params={"confirm": "RESET"}).status_code == 403
+    r = client.post("/admin/reset-demo?confirm=RESET", headers=adm)
+    assert r.status_code == 200, r.text
+    # old tokens are rejected after a reset
+    assert client.get("/auth/me", headers=cit).status_code == 401
+    assert client.get("/admin/overview", headers=adm).status_code == 401
+    adm2 = login("admin@smartroute.in", "admin123")
+    assert client.get("/admin/overview", headers=adm2).json()["open_requests"] == 38

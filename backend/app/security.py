@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from .config import SECRET_KEY, TOKEN_EXPIRE_HOURS
 from .database import get_db
-from .models import User, utcnow
+from .models import AppMeta, User, utcnow
 
 _ITERATIONS = 200_000
 _bearer = HTTPBearer(auto_error=False)
@@ -33,8 +33,14 @@ def verify_password(password: str, stored: str) -> bool:
         return False
 
 
-def create_token(user: User) -> str:
-    payload = {"sub": str(user.id), "role": user.role, "exp": utcnow() + timedelta(hours=TOKEN_EXPIRE_HOURS)}
+def data_epoch(db: Session) -> str:
+    meta = db.get(AppMeta, "data_epoch")
+    return meta.value if meta else ""
+
+
+def create_token(user: User, db: Session) -> str:
+    payload = {"sub": str(user.id), "role": user.role, "ep": data_epoch(db),
+               "exp": utcnow() + timedelta(hours=TOKEN_EXPIRE_HOURS)}
     return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
 
 
@@ -47,6 +53,9 @@ def get_current_user(
         payload = jwt.decode(creds.credentials, SECRET_KEY, algorithms=["HS256"])
     except jwt.PyJWTError:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Session expired, please log in again")
+    # after a demo-data reset, old tokens may point at a different user id -> force re-login
+    if payload.get("ep", "") != data_epoch(db):
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Data was reset, please log in again")
     user = db.get(User, int(payload["sub"]))
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Account not found")

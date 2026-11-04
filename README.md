@@ -81,11 +81,16 @@ If the QR code doesn't connect (common on college Wi-Fi), use `npm run tunnel` i
 | App | Email | Password |
 |---|---|---|
 | Dashboard | admin@smartroute.in | admin123 |
-| Citizen | citizen@smartroute.in (or user1 … user39) | citizen123 |
-| Collector | driver1@smartroute.in … driver4 | driver123 |
-| Recycler | recycler@smartroute.in, recycler2@smartroute.in | recycler123 |
+| Citizen (household) | citizen@smartroute.in (or user1 … user63) | citizen123 |
+| Citizen (business) | business@smartroute.in (Hotel Annapoorna, or biz1 … biz15) | citizen123 |
+| Collector | driver1 … driver4@smartroute.in (driver5 is on standby, no vehicle) | driver123 |
+| Recycler | recycler@smartroute.in, recycler2@…, recycler3@… (e-waste) | recycler123 |
 
-To reset all data at any time: `python -m app.seed --reset`
+**Fresh start any time:** Dashboard → **Users** → **Reset demo data** (type RESET). This wipes
+everything and loads the Vellore demo again. It contains 30 days of history, and 38 open requests that show
+every case: 4 dense communities, isolated non-urgent requests (held by the planner), isolated
+urgent ones (hazardous / critical), 2 overdue requests, one nearly due, one skipped earlier (gate locked) and one cancelled.
+Everyone is logged out after a reset. Locally you can also run `python -m app.seed --reset`.
 
 ## 6. End-to-end demo script (for reviews)
 

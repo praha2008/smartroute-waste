@@ -30,7 +30,7 @@ def register(body: RegisterIn, db: Session = Depends(get_db)):
     )
     db.add(user)
     db.commit()
-    return TokenOut(token=create_token(user), user=UserOut.model_validate(user))
+    return TokenOut(token=create_token(user, db), user=UserOut.model_validate(user))
 
 
 @router.post("/login", response_model=TokenOut)
@@ -40,7 +40,7 @@ def login(body: LoginIn, db: Session = Depends(get_db)):
         raise HTTPException(401, "Wrong email or password")
     if not user.is_active:
         raise HTTPException(403, "Account disabled")
-    return TokenOut(token=create_token(user), user=UserOut.model_validate(user))
+    return TokenOut(token=create_token(user, db), user=UserOut.model_validate(user))
 
 
 @router.get("/me", response_model=UserOut)

@@ -223,6 +223,20 @@ def create_user(body: StaffCreate, _: User = Depends(admin), db: Session = Depen
     return u
 
 
+@router.post("/reset-demo")
+def reset_demo(confirm: str = Query(..., description='type RESET to confirm'), _: User = Depends(admin),
+               db: Session = Depends(get_db)):
+    """Wipe ALL data and load the fresh Vellore demo dataset. Everyone is logged out."""
+    if confirm != "RESET":
+        raise HTTPException(400, "Type RESET to confirm")
+    from ..seed import seed
+
+    db.rollback()
+    db.close()  # release this request's locks before dropping tables
+    seed(reset=True)
+    return {"ok": True, "message": "Demo data reset. Please log in again."}
+
+
 # ------------------------------------------------------------------ analytics
 @router.get("/analytics")
 def analytics(days: int = 14, _: User = Depends(admin), db: Session = Depends(get_db)):
