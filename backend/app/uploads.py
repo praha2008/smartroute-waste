@@ -1,6 +1,7 @@
 """Image uploads. Images are stored in the database table `images` and served at /images/{id}."""
 import base64
 import binascii
+import secrets
 from pathlib import Path
 
 from fastapi import HTTPException, UploadFile
@@ -31,7 +32,8 @@ def _store(raw: bytes) -> str:
         img = StoredImage(mime=mime, data=raw)
         db.add(img)
         db.commit()
-        return f"/images/{img.id}"
+        # the random part makes every URL unique, so phones never show a cached photo from before a data reset
+        return f"/images/{img.id}?v={secrets.token_hex(4)}"
 
 
 def save_base64_image(data: str, prefix: str = "") -> str:

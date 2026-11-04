@@ -137,3 +137,10 @@ def test_reset_demo_logs_everyone_out():
     assert client.post("/admin/reset-demo?confirm=RESET&mode=full", headers=adm2).status_code == 200
     adm3 = login("admin@smartroute.in", "admin123")
     assert client.get("/admin/overview", headers=adm3).json()["open_requests"] == 38
+
+
+def test_photo_urls_are_unique_even_if_ids_repeat():
+    from app.uploads import _store
+    a, b = _store(b"\xff\xd8\xff\xe0" + b"1" * 50), _store(b"\xff\xd8\xff\xe0" + b"2" * 50)
+    assert a != b and "?v=" in a
+    assert client.get(a).status_code == 200
