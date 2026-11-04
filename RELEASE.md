@@ -30,14 +30,23 @@ git commit -m "v2: maps, phone OTP, Tamil, new UI"
 git push
 ```
 
-## 1b. Maps
+## 1b. Maps and place search
 
-The maps are free: MapLibre with OpenFreeMap tiles and OpenStreetMap search. There is no API key and no billing. (Optional: the server also understands a Google `GOOGLE_MAPS_API_KEY` for Google place search, but it is not needed.)
+The map itself is free (MapLibre with OpenFreeMap tiles) and needs no key.
+
+For **Google-Maps-quality search**, use **Ola Maps** (Indian place data, free monthly allowance):
+
+1. Sign up at **maps.olakrutrim.com** (Ola Krutrim cloud) and create a project.
+2. Copy the **API key**.
+3. On Render, add it to the api service as `OLA_MAPS_API_KEY`.
+
+No new APK is needed: search and the address under the pin switch to Ola automatically. Without the key, search uses free OpenStreetMap data, with nearest results first. (Optional: a Google `GOOGLE_MAPS_API_KEY` also works, but it needs a billing account.)
 
 ## 2. Render environment variables (api service → Environment)
 
 | Variable | What to put | Needed? |
 |---|---|---|
+| `OLA_MAPS_API_KEY` | Ola Maps key: much better place search (see 1b) | recommended |
 | `APP_MODE` | `release` for the final project (no demo logins on screen, reset only to admin + fleet). `demo` while practising | yes |
 | `ADMIN_EMAIL` / `ADMIN_PASSWORD` / `ADMIN_PHONE` / `ADMIN_NAME` | Your real admin login. **Set it here only, never in code.** | yes |
 | `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, `TWILIO_VERIFY_SID` | Real SMS codes (see 3) | optional |

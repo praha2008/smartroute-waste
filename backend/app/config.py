@@ -64,6 +64,8 @@ APP_MODE = os.getenv("APP_MODE", "demo").lower()
 # Google Maps Platform (server key): Places API (New) for search, Geocoding API for the address under
 # the pin. Without it the free OpenStreetMap search (Photon) is used.
 GOOGLE_MAPS_API_KEY = os.getenv("GOOGLE_MAPS_API_KEY", "")
+# Ola Maps (Indian place data, free monthly allowance): used for search + addresses when set
+OLA_MAPS_API_KEY = os.getenv("OLA_MAPS_API_KEY", "")
 ADMIN_NAME = os.getenv("ADMIN_NAME", "Municipal Admin")
 ADMIN_EMAIL = os.getenv("ADMIN_EMAIL", "")
 ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "")

@@ -257,3 +257,56 @@ def test_search_falls_back_to_nominatim_when_photon_fails(monkeypatch):
     r = c.get("/geo/search?q=vit").json()
     assert r["results"][0]["title"] == "VIT Vellore" and r["results"][0]["lat"] == 12.9692
     assert r["results"][0]["subtitle"] == "Katpadi Road, Katpadi, Vellore"
+
+
+def test_ola_maps_search_details_and_reverse(monkeypatch):
+    from app import config
+    from app.routers import geo
+
+    monkeypatch.setattr(config, "GOOGLE_MAPS_API_KEY", "")
+    monkeypatch.setattr(config, "OLA_MAPS_API_KEY", "ola-key")
+    seen = []
+
+    def fake(url):
+        seen.append(url)
+        assert "api_key=ola-key" in url
+        if "/autocomplete" in url:
+            return {"status": "ok", "predictions": [
+                {"description": "VIT Vellore, Katpadi, Vellore, Tamil Nadu, India", "place_id": "ola-platform:1",
+                 "structured_formatting": {"main_text": "VIT Vellore", "secondary_text": "Katpadi, Vellore, Tamil Nadu, India"},
+                 "geometry": {"location": {"lat": 12.9692, "lng": 79.1559}}},
+                {"description": "Vellore Fort, Vellore, Tamil Nadu", "place_id": "ola-platform:2",
+                 "structured_formatting": {"main_text": "Vellore Fort", "secondary_text": "Vellore, Tamil Nadu"}}]}
+        if "/details" in url:
+            return {"result": {"name": "Vellore Fort", "formatted_address": "Fort Rd, Vellore, Tamil Nadu 632004, India",
+                               "geometry": {"location": {"lat": 12.9206, "lng": 79.1290}}}}
+        if "/reverse-geocode" in url:
+            return {"results": [{"formatted_address": "12, Gandhi Rd, Katpadi, Vellore, Tamil Nadu 632007, India", "name": ""}]}
+        raise AssertionError(url)
+    monkeypatch.setattr(geo, "_get", fake)
+    r = c.get("/geo/search?q=vit&lat=12.92&lng=79.13").json()
+    assert r["provider"] == "ola"
+    assert r["results"][0] == {"title": "VIT Vellore", "subtitle": "Katpadi, Vellore, Tamil Nadu", "lat": 12.9692, "lng": 79.1559}
+    assert r["results"][1]["place_id"] == "ola:ola-platform:2"
+    assert "location=12.920000,79.130000" in seen[0]
+    p = c.get("/geo/place?id=ola:ola-platform:2").json()
+    assert p["lat"] == 12.9206 and p["title"] == "Vellore Fort"
+    assert c.get("/geo/reverse?lat=12.97&lng=79.15").json()["title"] == "12, Gandhi Rd"
+    assert c.get("/geo/provider").json()["provider"] == "ola"
+
+
+def test_free_search_prefers_nearby_results(monkeypatch):
+    from app import config
+    from app.routers import geo
+
+    monkeypatch.setattr(config, "GOOGLE_MAPS_API_KEY", "")
+    monkeypatch.setattr(config, "OLA_MAPS_API_KEY", "")
+    def fake(url):
+        if "photon" in url:
+            return {"features": [
+                {"geometry": {"coordinates": [80.50, 16.49]}, "properties": {"name": "VIT-AP University", "city": "Amaravati"}},
+                {"geometry": {"coordinates": [79.1559, 12.9692]}, "properties": {"name": "VIT Vellore", "city": "Vellore"}}]}
+        return []
+    monkeypatch.setattr(geo, "_get", fake)
+    r = c.get("/geo/search?q=vit uni&lat=12.92&lng=79.13").json()["results"]
+    assert r[0]["title"] == "VIT Vellore"
