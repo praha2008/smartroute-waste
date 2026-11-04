@@ -10,6 +10,7 @@ export interface CodeSent {
   channel: 'sms' | 'email';
   target: string;
   demo: boolean;
+  fallback?: boolean;
   dev_code?: string | null;
 }
 

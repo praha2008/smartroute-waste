@@ -65,6 +65,7 @@ class CodeSentOut(BaseModel):
     channel: str
     target: str
     demo: bool = False
+    fallback: bool = False  # real SMS failed, code shown on screen instead
     dev_code: str | None = None
 
 

@@ -98,14 +98,25 @@ def send_sms_code(db: Session, phone: str) -> dict:
     if dev_mode_for("sms"):
         return {"channel": "sms", "demo": True, "dev_code": _store(db, "verify_phone", phone)}
     _rate_limit(db, "verify_phone", phone)
+    try:
+        _twilio("Verifications", {"To": phone, "Channel": "sms"})
+    except HTTPException:
+        # e.g. a Twilio trial can only text its verified numbers, or the free credit ran out.
+        # Fall back to showing the code on screen so sign-up never gets stuck (unless OTP_DEV_MODE=false).
+        if config.OTP_DEV_MODE == "false":
+            raise
+        return {"channel": "sms", "demo": True, "fallback": True, "dev_code": _store(db, "verify_phone", phone)}
     db.add(OtpCode(purpose="verify_phone", target=phone, code_hash="twilio", expires_at=utcnow() + timedelta(minutes=10)))
     db.commit()
-    _twilio("Verifications", {"To": phone, "Channel": "sms"})
     return {"channel": "sms", "demo": False}
 
 
 def check_sms_code(db: Session, phone: str, code: str) -> bool:
     if dev_mode_for("sms"):
+        return _check_stored(db, "verify_phone", phone, code)
+    latest = db.scalar(select(OtpCode).where(OtpCode.purpose == "verify_phone", OtpCode.target == phone, OtpCode.used.is_(False))
+                       .order_by(OtpCode.id.desc()))
+    if latest is not None and latest.code_hash != "twilio":  # this code was a fallback shown on screen
         return _check_stored(db, "verify_phone", phone, code)
     res = _twilio("VerificationCheck", {"To": phone, "Code": code.strip()})
     if res.get("status") == "expired":

@@ -184,3 +184,20 @@ def test_google_places_search_details_and_reverse(monkeypatch):
     rev = c.get("/geo/reverse?lat=12.97&lng=79.15").json()
     assert rev["title"] == "12, Gandhi Rd" and rev["subtitle"].startswith("Katpadi, Vellore")
     assert c.get("/geo/provider").json()["provider"] == "google"
+
+
+def test_sms_falls_back_to_screen_code_when_twilio_refuses(monkeypatch):
+    from fastapi import HTTPException
+    from app import config, notify
+
+    monkeypatch.setattr(config, "SMS_CONFIGURED", True)
+    def refuse(path, data):
+        if path == "Verifications":
+            raise HTTPException(502, "Could not send SMS: The phone number is unverified. Trial accounts cannot send messages to unverified numbers")
+        raise AssertionError("VerificationCheck must not be called for a fallback code")
+    monkeypatch.setattr(notify, "_twilio", refuse)
+    r = c.post("/auth/register", json={"name": "Trial User", "email": "trial@example.com", "password": "pass123",
+                                       "phone": "9822233344", "lat": 12.92, "lng": 79.13}).json()
+    assert r["demo"] is True and r["fallback"] is True and len(r["dev_code"]) == 6
+    ok = c.post("/auth/verify-phone", json={"phone": "9822233344", "code": r["dev_code"]})
+    assert ok.status_code == 200, ok.text

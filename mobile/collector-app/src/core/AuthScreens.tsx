@@ -479,7 +479,7 @@ function OtpScreen({ phone, sent: first, onBack }: { phone: string; sent: CodeSe
 
   return (
     <AuthShell title={t('otp.title')} subtitle={t('otp.subtitle', { target: sent.target })} onBack={onBack}>
-      {sent.dev_code ? <Banner tone="warning" icon="flask-outline" text={t('otp.demoSms', { code: sent.dev_code })} /> : null}
+      {sent.dev_code ? <Banner tone="warning" icon="flask-outline" text={t(sent.fallback ? 'otp.fallbackSms' : 'otp.demoSms', { code: sent.dev_code })} /> : null}
       <OtpInput
         value={code}
         onChange={(v) => {

@@ -100,6 +100,7 @@ export const STRINGS: Record<string, Entry> = {
   'otp.resend': s('Resend code', 'மீண்டும் அனுப்பு'),
   'otp.resendIn': s('Resend in {s}s', '{s} வினாடிகளில் மீண்டும் அனுப்பலாம்'),
   'otp.demoSms': s('Demo mode (SMS not connected): your code is {code}', 'டெமோ முறை (SMS இணைக்கப்படவில்லை): உங்கள் குறியீடு {code}'),
+  'otp.fallbackSms': s("SMS couldn't reach this number (trial limit), so here is your code: {code}", 'இந்த எண்ணுக்கு SMS அனுப்ப முடியவில்லை (சோதனை வரம்பு). உங்கள் குறியீடு: {code}'),
   'otp.demoEmail': s('Demo mode (email not connected): your code is {code}', 'டெமோ முறை (மின்னஞ்சல் இணைக்கப்படவில்லை): உங்கள் குறியீடு {code}'),
   'otp.sent': s('A new code has been sent', 'புதிய குறியீடு அனுப்பப்பட்டது'),
 
